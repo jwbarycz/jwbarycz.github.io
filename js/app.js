@@ -1,0 +1,266 @@
+// Punkt wejścia: router, motyw, skróty klawiszowe, obsługa akcji.
+
+import { config } from './config.js';
+import { store } from './store.js';
+import { today, addDays } from './utils.js';
+import { parseQuick } from './tasks.js';
+import { parseLibrary } from './insights.js';
+import { openTaskDialog, openProjectDialog, openLibraryDialog, libraryDates, toast } from './components.js';
+import { renderHome } from './views/home.js';
+import { renderTasks, ui as tasksUi } from './views/tasks.js';
+import { renderProjects, renderProject } from './views/projects.js';
+import { renderLibrary, ui as libraryUi } from './views/library.js';
+import { renderJournal, ui as journalUi } from './views/journal.js';
+import { renderStyle } from './views/style.js';
+
+const routes = {
+  '': { id: 'panel', title: 'Panel', render: renderHome },
+  zadania: { id: 'zadania', title: 'Zadania', render: renderTasks },
+  projekty: { id: 'projekty', title: 'Projekty', render: (id) => (id ? renderProject(id) : renderProjects()) },
+  biblioteka: { id: 'biblioteka', title: 'Biblioteka', render: renderLibrary },
+  dziennik: { id: 'dziennik', title: 'Dziennik', render: renderJournal },
+  styl: { id: 'styl', title: 'Styl', render: renderStyle },
+};
+
+const view = document.getElementById('view');
+
+/** '#/projekty/abc' → { route: routes.projekty, param: 'abc' } */
+function currentRoute() {
+  const [name = '', param] = location.hash.replace(/^#\/?/, '').split('/');
+  return { route: routes[name] || routes[''], param };
+}
+
+function render({ keepFocus = false } = {}) {
+  const { route, param } = currentRoute();
+  // Zachowaj fokus w prompcie po dodaniu wpisu
+  const activeId = keepFocus && document.activeElement?.closest('#view form') && document.activeElement.name;
+  const activeForm = activeId && document.activeElement.form?.dataset.form;
+  const scrollY = window.scrollY;
+
+  view.innerHTML = route.render(param);
+
+  const project = route.id === 'projekty' && param && store.project(param);
+  document.title = `${project ? project.name : route.title} · ${config.name}`;
+  document.querySelectorAll('[data-route]').forEach((a) => {
+    if (a.dataset.route === route.id) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
+  if (activeForm) view.querySelector(`form[data-form="${activeForm}"] [name="${activeId}"]`)?.focus();
+  if (keepFocus) window.scrollTo(0, scrollY);
+}
+
+/* ---------- Motyw ---------- */
+function setTheme(theme) {
+  const root = document.documentElement;
+  root.classList.remove('light', 'dark');
+  root.classList.add(theme);
+  document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#0e1018' : '#ffffff';
+  try { localStorage.setItem('panel:theme', theme); } catch {}
+}
+const toggleTheme = () => setTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+
+/* ---------- Akcje (delegacja zdarzeń) ---------- */
+function handleAction(action, el) {
+  const id = el.dataset.id || el.closest('[data-id]')?.dataset.id;
+  const t = id && store.task(id);
+  switch (action) {
+    /* zadania */
+    case 'toggle':
+      store.toggleDone(id);
+      if (t?.done) toast('Zrobione ✓');
+      break;
+    case 'focus':
+      store.setFocus(store.day().focus === id ? null : id);
+      break;
+    case 'unfocus':
+      store.setFocus(null);
+      break;
+    case 'tomorrow': {
+      // Termin, który już minął, też przesuwamy — inaczej zadanie zostałoby na dziś
+      const before = { plan: t.plan, due: t.due };
+      const moveDue = t.due && t.due <= today();
+      store.updateTask(id, { plan: addDays(today(), 1), ...(moveDue ? { due: addDays(today(), 1) } : {}) });
+      if (store.day().focus === id) store.setFocus(null);
+      toast(moveDue ? 'Przeniesione na jutro (z terminem)' : 'Przeniesione na jutro', () => store.updateTask(id, before));
+      break;
+    }
+    case 'plan-today':
+      store.updateTask(id, { plan: today() });
+      toast('Zaplanowane na dziś');
+      break;
+    case 'edit':
+      openTaskDialog(id);
+      break;
+    case 'delete': {
+      const undo = store.removeTask(id);
+      toast(`Usunięto: ${t?.title ?? ''}`, undo);
+      break;
+    }
+    case 'toggle-all-done':
+      tasksUi.showAllDone = !tasksUi.showAllDone;
+      render({ keepFocus: true });
+      break;
+
+    /* projekty */
+    case 'new-project':
+      openProjectDialog(null);
+      break;
+    case 'edit-project':
+      openProjectDialog(id);
+      break;
+    case 'delete-project': {
+      const p = store.project(id);
+      if (!p || !confirm(`Usunąć projekt „${p.name}”? Zadania zostaną, tylko bez projektu.`)) break;
+      const linked = store.state.tasks.filter((x) => x.project === id).map((x) => x.id);
+      store.update((s) => { for (const x of s.tasks) if (x.project === id) x.project = null; });
+      const undo = store.remove('projects', id);
+      location.hash = '#/projekty';
+      toast(`Usunięto projekt: ${p.name}`, () => {
+        undo();
+        store.update((s) => { for (const x of s.tasks) if (linked.includes(x.id)) x.project = id; });
+      });
+      break;
+    }
+
+    /* biblioteka */
+    case 'lib-edit':
+      openLibraryDialog(id);
+      break;
+    case 'lib-start':
+      store.patch('library', id, { status: 'w trakcie', ...libraryDates(store.state.library.find((x) => x.id === id), 'w trakcie') });
+      toast('Przeniesione do „w trakcie”');
+      break;
+    case 'lib-finish':
+      // Przy kończeniu od razu pytamy o ocenę i jedną myśl
+      openLibraryDialog(id, { status: 'skończone' });
+      break;
+    case 'lib-drop': {
+      const item = store.state.library.find((x) => x.id === id);
+      const before = { status: item.status, startedAt: item.startedAt, finishedAt: item.finishedAt };
+      store.patch('library', id, { status: 'porzucone', ...libraryDates(item, 'porzucone') });
+      toast(`Porzucone: ${item.title}`, () => store.patch('library', id, before));
+      break;
+    }
+    case 'lib-delete': {
+      const item = store.state.library.find((x) => x.id === id);
+      const undo = store.remove('library', id);
+      toast(`Usunięto: ${item?.title ?? ''}`, undo);
+      break;
+    }
+
+    /* dziennik */
+    case 'energy':
+    case 'mood': {
+      const date = el.closest('[data-date]')?.dataset.date || today();
+      const value = Number(el.dataset.value);
+      const cur = store.day(date)[action];
+      store.patchDay(date, { [action]: cur === value ? null : value });
+      break;
+    }
+    case 'journal-edit':
+      journalUi.date = el.dataset.date;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      break;
+    case 'journal-today':
+      journalUi.date = null;
+      render();
+      break;
+
+    case 'clear-seed':
+      store.clearSeed();
+      toast('Przykładowe dane usunięte');
+      break;
+  }
+}
+
+view.addEventListener('click', (e) => {
+  const fc = e.target.closest('[data-filter-cat]');
+  if (fc) { tasksUi.cat = tasksUi.cat === fc.dataset.filterCat ? null : fc.dataset.filterCat; return render({ keepFocus: true }); }
+  const fk = e.target.closest('[data-filter-kind]');
+  if (fk) { libraryUi.kind = libraryUi.kind === fk.dataset.filterKind ? null : fk.dataset.filterKind; return render({ keepFocus: true }); }
+  const fp = e.target.closest('[data-filter-project]');
+  if (fp) { tasksUi.project = tasksUi.project === fp.dataset.filterProject ? null : fp.dataset.filterProject; return render({ keepFocus: true }); }
+
+  const el = e.target.closest('[data-action]');
+  if (!el || (el.tagName === 'INPUT' && el.type === 'checkbox')) return; // checkboxy obsługuje 'change'
+  handleAction(el.dataset.action, el);
+});
+
+view.addEventListener('change', (e) => {
+  if (e.target.matches('input[type="checkbox"][data-action]')) handleAction(e.target.dataset.action, e.target);
+});
+
+view.addEventListener('submit', (e) => {
+  const form = e.target.closest('form[data-form]');
+  if (!form) return;
+  e.preventDefault();
+  const kind = form.dataset.form;
+
+  if (kind === 'quick-add') {
+    const input = form.querySelector('input');
+    const parsed = parseQuick(input.value);
+    if (!parsed.title) return;
+    const { route, param } = currentRoute();
+    // Na stronie głównej nowe zadanie ląduje w planie dnia, na stronie projektu — w projekcie
+    if (route.id === 'panel' && !parsed.plan) parsed.plan = today();
+    if (route.id === 'projekty' && param && !parsed.project) parsed.project = param;
+    store.addTask(parsed);
+    input.value = '';
+    input.focus();
+  }
+
+  if (kind === 'add-library') {
+    const input = form.querySelector('input');
+    const parsed = parseLibrary(input.value);
+    if (!parsed.title) return;
+    store.add('library', { ...parsed, status: 'kolejka', rating: null, note: '', link: '', startedAt: null, finishedAt: null });
+    input.value = '';
+    input.focus();
+  }
+
+  if (kind === 'journal-note') {
+    store.patchDay(form.dataset.date, { note: form.note.value.trim() });
+    toast('Notatka zapisana');
+  }
+});
+
+/* ---------- Skróty klawiszowe ---------- */
+const JUMPS = { p: '#/', z: '#/zadania', r: '#/projekty', b: '#/biblioteka', d: '#/dziennik', s: '#/styl' };
+let gPressed = 0;
+document.addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const typing = e.target.closest('input, textarea, select, [contenteditable]') || document.querySelector('dialog[open]');
+  if (typing) {
+    if (e.key === 'Escape' && e.target.id === 'quick-input') e.target.blur();
+    return;
+  }
+  if (gPressed && Date.now() - gPressed < 800) {
+    gPressed = 0;
+    if (JUMPS[e.key]) location.hash = JUMPS[e.key];
+    return;
+  }
+  if (e.key === 'g') { gPressed = Date.now(); return; }
+  if (e.key === 'n') {
+    const input = document.getElementById('quick-input');
+    if (input) { e.preventDefault(); input.focus(); } else openTaskDialog(null);
+  }
+  if (e.key === 't') toggleTheme();
+});
+
+/* ---------- Start ---------- */
+document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+document.getElementById('logo').textContent = config.name;
+document.getElementById('footer-left').innerHTML =
+  `${config.name} · dane: ${store.backend === 'local' ? 'ta przeglądarka' : 'GitHub'} · <a href="#/styl">styl</a>`;
+
+store.subscribe(() => render({ keepFocus: true }));
+window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+
+// Co minutę odśwież widok (pasek dnia, przejście przez północ) — ale nie w trakcie pisania
+setInterval(() => {
+  if (document.querySelector('dialog[open]') || document.activeElement?.closest('#view input, #view textarea')) return;
+  render({ keepFocus: true });
+}, 60_000);
+
+render();

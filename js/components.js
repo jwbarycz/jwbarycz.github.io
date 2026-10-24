@@ -1,0 +1,402 @@
+// Wspólne elementy UI: ikony, zadania (wiersz i wpis jak post), prompt,
+// dialogi edycji, toast, wykres energii.
+
+import { config, categoryById } from './config.js';
+import { html, raw, relDate, today, addDays } from './utils.js';
+import { isOverdue, prioMark, displayDate } from './tasks.js';
+import { PROJECT_STATUSES, MOOD_NAMES, LIBRARY_KINDS, LIBRARY_STATUSES } from './insights.js';
+import { store } from './store.js';
+
+const svg = (d) => raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`);
+
+export const icons = {
+  star: svg('<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>'),
+  sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>'),
+  next: svg('<path d="M5 12h13M13 6l6 6-6 6"/>'),
+  edit: svg('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>'),
+  trash: svg('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
+};
+
+export const catChip = (cat) =>
+  html`<span class="chip" style="--cat: var(${cat.color})"><span class="sw"></span>${cat.name.toLowerCase()}</span>`;
+
+export function projectChip(projectId) {
+  const p = projectId && store.project(projectId);
+  if (!p) return '';
+  return html`<a class="chip chip-link" href="#/projekty/${p.id}" style="--cat: var(${p.color})"><span class="sw"></span>${p.name}</a>`;
+}
+
+function dueChip(t) {
+  if (!t.due || t.done) return '';
+  const cls = isOverdue(t) ? 'overdue' : t.due === today() ? 'today' : '';
+  return html`<span class="chip ${cls}" title="termin ${t.due}">⏲ ${relDate(t.due)}</span>`;
+}
+
+function taskActions(t, context) {
+  const focusId = store.day().focus;
+  const plannedToday = t.plan && t.plan <= today();
+  const out = [];
+  if (!t.done) {
+    out.push(html`<button class="icon-btn" data-action="focus" title="${focusId === t.id ? 'Usuń z fokusu' : 'Ustaw jako fokus dnia'}" aria-label="Fokus">${icons.star}</button>`);
+    if (context === 'today' || plannedToday) {
+      out.push(html`<button class="icon-btn" data-action="tomorrow" title="Przenieś na jutro" aria-label="Na jutro">${icons.next}</button>`);
+    } else {
+      out.push(html`<button class="icon-btn" data-action="plan-today" title="Zaplanuj na dziś" aria-label="Na dziś">${icons.sun}</button>`);
+    }
+  }
+  out.push(html`<button class="icon-btn" data-action="edit" title="Edytuj" aria-label="Edytuj">${icons.edit}</button>`);
+  out.push(html`<button class="icon-btn" data-action="delete" title="Usuń" aria-label="Usuń">${icons.trash}</button>`);
+  return out;
+}
+
+/**
+ * Kompaktowy wiersz zadania z checkboxem (karty na stronie głównej).
+ * opts.showCat / opts.showProject — chipy, opts.context — 'today' | 'list'
+ */
+export function taskRow(t, opts = {}) {
+  const focusId = store.day().focus;
+  const plannedToday = t.plan && t.plan <= today();
+  const meta = [
+    opts.showCat ? catChip(categoryById(t.cat)) : '',
+    opts.showProject ? projectChip(t.project) : '',
+    dueChip(t),
+    !t.done && opts.context !== 'today' && plannedToday ? html`<span class="chip today">☀ dziś</span>` : '',
+  ].join('');
+
+  return html`
+    <li class="task ${t.done ? 'done' : ''} ${focusId === t.id && !t.done ? 'is-focus' : ''}" data-id="${t.id}">
+      <input type="checkbox" class="check" data-action="toggle" ${t.done ? raw('checked') : ''} aria-label="Zrobione: ${t.title}">
+      <div class="body">
+        <div class="title" data-action="edit">${t.prio ? html`<span class="prio">${prioMark(t.prio)}</span>` : ''}${t.title}</div>
+        <div class="meta">${raw(meta)}</div>
+      </div>
+      <div class="actions">${taskActions(t, opts.context)}</div>
+    </li>`;
+}
+
+export function taskList(tasks, opts = {}, emptyText = 'Pusto.') {
+  if (!tasks.length) return html`<p class="empty">${emptyText}</p>`;
+  return html`<ul class="task-list">${tasks.map((t) => taskRow(t, opts))}</ul>`;
+}
+
+/**
+ * Zadanie jako wpis na liście w stylu bloga:
+ * data po lewej, "# Tytuł", opis szeryfem, link w stylu "Read more ⟶".
+ */
+export function postTask(t, opts = {}) {
+  const focusId = store.day().focus;
+  const date = displayDate(t);
+  const cat = categoryById(t.cat);
+  const metaBits = [
+    catChip(cat),
+    opts.hideProject ? '' : projectChip(t.project),
+    dueChip(t),
+    !t.done && t.plan && t.plan <= today() ? html`<span class="chip today">☀ dziś</span>` : '',
+    !t.done && t.plan && t.plan > today() ? html`<span class="chip">↳ ${relDate(t.plan)}</span>` : '',
+  ].join('');
+
+  return html`
+    <li class="list-item ${t.done ? 'done' : ''}" data-id="${t.id}">
+      <div class="post-header">
+        <time class="${isOverdue(t) ? 'overdue' : ''}" datetime="${date || ''}">${date || '—'}</time>
+        <div class="post-body">
+          <h3 class="post-title ${focusId === t.id && !t.done ? 'is-focus' : ''}">
+            <span class="title-text" data-action="edit">${t.title}</span>${t.prio ? html` <span class="prio">${prioMark(t.prio)}</span>` : ''}
+          </h3>
+          ${t.note ? html`<div class="description">${t.note}</div>` : ''}
+          <div class="meta">${raw(metaBits)}</div>
+          <div class="post-links">
+            <button class="readmore" data-action="toggle">${t.done ? 'Przywróć ⟵' : 'Zrobione ⟶'}</button>
+            <span class="actions">${taskActions(t, 'list')}</span>
+          </div>
+        </div>
+      </div>
+    </li>`;
+}
+
+export function postTaskList(tasks, opts = {}, emptyText = 'Pusto.') {
+  if (!tasks.length) return html`<p class="empty">${emptyText}</p>`;
+  return html`<ul class="post-list">${tasks.map((t) => postTask(t, opts))}</ul>`;
+}
+
+export function quickAdd(placeholder) {
+  return html`
+    <form class="quick-add" data-form="quick-add" autocomplete="off">
+      <label class="prompt">
+        <span class="caret" aria-hidden="true">&gt;</span>
+        <span class="sr-only">Nowe zadanie</span>
+        <input name="q" id="quick-input" placeholder="${placeholder}" enterkeyhint="done">
+      </label>
+      <p class="prompt-hint">
+        <code>!1-3</code> priorytet · <code>#adm</code> kategoria · <code>+python</code> projekt · <code>@jutro</code> <code>@pt</code> <code>@30.10</code> termin · <code>^jutro</code> zaplanuj
+      </p>
+    </form>`;
+}
+
+/* ---------- Wykres energii (sparkline) ---------- */
+
+export function sparkline(series, { height = 64, max = 10 } = {}) {
+  const w = 300;
+  const pts = series.map((p, i) => p.value == null ? null : [
+    (i / Math.max(1, series.length - 1)) * w,
+    height - 4 - ((p.value - 1) / (max - 1)) * (height - 8),
+  ]);
+  const segs = [];
+  let cur = [];
+  for (const p of pts) { if (p) cur.push(p); else if (cur.length) { segs.push(cur); cur = []; } }
+  if (cur.length) segs.push(cur);
+  const path = segs.map((s) => 'M' + s.map((p) => p.map((n) => n.toFixed(1)).join(',')).join(' L')).join(' ');
+  const area = segs.filter((s) => s.length > 1)
+    .map((s) => `M${s[0][0].toFixed(1)},${height} L` + s.map((p) => p.map((n) => n.toFixed(1)).join(',')).join(' L') + ` L${s[s.length - 1][0].toFixed(1)},${height} Z`).join(' ');
+  const dots = pts.filter(Boolean).map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.6"/>`).join('');
+  return raw(`<svg class="sparkline" viewBox="0 0 ${w} ${height}" preserveAspectRatio="none" role="img" aria-label="Energia z ostatnich dni">
+    <path class="area" d="${area}"/><path class="line" d="${path}" vector-effect="non-scaling-stroke"/><g class="dots">${dots}</g></svg>`);
+}
+
+/* ---------- Check-in dnia: energia + nastrój ---------- */
+
+export function checkin(date = today()) {
+  const d = store.day(date);
+  return html`
+    <div class="checkin" data-date="${date}">
+      <div class="checkin-row">
+        <span class="label">energia</span>
+        <div class="scale" role="group" aria-label="Energia 1–10">
+          ${Array.from({ length: 10 }, (_, i) => i + 1).map((n) =>
+            html`<button class="scale-btn ${d.energy === n ? 'on' : ''} ${d.energy >= n ? 'fill' : ''}" data-action="energy" data-value="${n}" aria-pressed="${String(d.energy === n)}">${n}</button>`)}
+        </div>
+      </div>
+      <div class="checkin-row">
+        <span class="label">nastrój</span>
+        <div class="scale mood" role="group" aria-label="Nastrój">
+          ${[1, 2, 3, 4, 5].map((n) =>
+            html`<button class="scale-btn ${d.mood === n ? 'on' : ''}" data-action="mood" data-value="${n}" aria-pressed="${String(d.mood === n)}">${MOOD_NAMES[n]}</button>`)}
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ---------- Toast z cofaniem ---------- */
+let toastTimer;
+export function toast(msg, undo) {
+  const el = document.getElementById('toast');
+  el.querySelector('.msg').textContent = msg;
+  const btn = el.querySelector('button');
+  btn.hidden = !undo;
+  btn.onclick = () => { undo?.(); el.classList.remove('show'); };
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), undo ? 5000 : 2200);
+}
+
+/* ---------- Dialogi ---------- */
+
+function showDialog(markup, onSave, onReady) {
+  const dlg = document.getElementById('task-dialog');
+  dlg.innerHTML = markup;
+  const form = dlg.querySelector('form');
+  dlg.onclose = () => { if (dlg.returnValue === 'save') onSave(new FormData(form)); };
+  dlg.returnValue = '';
+  onReady?.(form);
+  dlg.showModal();
+  const first = form.querySelector('input, textarea');
+  first?.focus();
+  first?.select?.();
+}
+
+const option = (value, label, selected) =>
+  html`<option value="${value}" ${selected ? raw('selected') : ''}>${label}</option>`;
+
+export function openTaskDialog(id, defaults = {}) {
+  const t = id ? store.task(id) : { title: '', cat: 'inbox', project: null, prio: 0, due: null, plan: null, note: '', ...defaults };
+  if (!t) return;
+  const projects = store.state.projects.filter((p) => p.status !== 'zakończony' || p.id === t.project);
+
+  showDialog(html`
+    <form method="dialog">
+      <h2 id="task-dialog-title">${id ? 'Edytuj zadanie' : 'Nowe zadanie'}</h2>
+      <label class="field">tytuł
+        <input class="input" name="title" required value="${t.title}">
+      </label>
+      <div class="field-row">
+        <label class="field">kategoria
+          <select class="input" name="cat">${config.categories.map((c) => option(c.id, c.name, c.id === t.cat))}</select>
+        </label>
+        <label class="field">projekt
+          <select class="input" name="project">
+            ${option('', '— brak', !t.project)}
+            ${projects.map((p) => option(p.id, p.name, p.id === t.project))}
+          </select>
+        </label>
+        <label class="field">priorytet
+          <select class="input" name="prio">
+            ${[[0, '— brak'], [1, '! niski'], [2, '!! średni'], [3, '!!! wysoki']].map(([v, l]) => option(v, l, v === t.prio))}
+          </select>
+        </label>
+      </div>
+      <div class="field-row">
+        <label class="field">zaplanuj na dzień
+          <input class="input" type="date" name="plan" value="${t.plan || ''}">
+        </label>
+        <label class="field">termin (deadline)
+          <input class="input" type="date" name="due" value="${t.due || ''}">
+        </label>
+      </div>
+      <label class="field">opis / notatka
+        <textarea class="input" name="note" rows="3">${t.note || ''}</textarea>
+      </label>
+      <div class="dialog-actions">
+        <div>
+          <button class="btn small ghost" type="button" data-set-plan="${today()}">☀ dziś</button>
+          <button class="btn small ghost" type="button" data-set-plan="${addDays(today(), 1)}">jutro</button>
+          <button class="btn small ghost" type="button" data-set-plan="">bez planu</button>
+        </div>
+        <div>
+          <button class="btn" value="cancel" formnovalidate>Anuluj</button>
+          <button class="btn primary" value="save">Zapisz</button>
+        </div>
+      </div>
+    </form>`,
+  (f) => {
+    const data = {
+      title: String(f.get('title')).trim(),
+      cat: f.get('cat'),
+      project: f.get('project') || null,
+      prio: Number(f.get('prio')),
+      plan: f.get('plan') || null,
+      due: f.get('due') || null,
+      note: String(f.get('note')).trim(),
+    };
+    if (!data.title) return;
+    if (id) store.updateTask(id, data);
+    else store.addTask(data);
+  },
+  (form) => form.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-set-plan]');
+    if (b) form.plan.value = b.dataset.setPlan;
+  }));
+}
+
+const PROJECT_COLORS = [
+  ['--primary-color', 'czerwony'], ['--info', 'niebieski'], ['--warning', 'pomarańczowy'],
+  ['--success', 'zielony'], ['--tip', 'turkusowy'], ['--violet', 'fioletowy'],
+];
+
+export function openProjectDialog(id) {
+  const p = id ? store.project(id) : { name: '', desc: '', status: 'aktywny', color: '--info', link: '' };
+  if (!p) return;
+  showDialog(html`
+    <form method="dialog">
+      <h2 id="task-dialog-title">${id ? 'Edytuj projekt' : 'Nowy projekt'}</h2>
+      <label class="field">nazwa
+        <input class="input" name="name" required value="${p.name}">
+      </label>
+      <label class="field">opis (jedno zdanie, jak na karcie projektu)
+        <textarea class="input" name="desc" rows="2">${p.desc}</textarea>
+      </label>
+      <div class="field-row">
+        <label class="field">status
+          <select class="input" name="status">${PROJECT_STATUSES.map((s) => option(s.id, s.name, s.id === p.status))}</select>
+        </label>
+        <label class="field">kolor
+          <select class="input" name="color">${PROJECT_COLORS.map(([v, l]) => option(v, l, v === p.color))}</select>
+        </label>
+      </div>
+      <label class="field">link (repo, dokument, folder — opcjonalnie)
+        <input class="input" name="link" type="url" placeholder="https://" value="${p.link || ''}">
+      </label>
+      <div class="dialog-actions">
+        <div></div>
+        <div>
+          <button class="btn" value="cancel" formnovalidate>Anuluj</button>
+          <button class="btn primary" value="save">Zapisz</button>
+        </div>
+      </div>
+    </form>`,
+  (f) => {
+    const data = {
+      name: String(f.get('name')).trim(),
+      desc: String(f.get('desc')).trim(),
+      status: f.get('status'),
+      color: f.get('color'),
+      link: String(f.get('link')).trim(),
+    };
+    if (!data.name) return;
+    if (id) store.patch('projects', id, data);
+    else store.add('projects', data);
+  });
+}
+
+/**
+ * Dialog pozycji w bibliotece. defaults.status pozwala otworzyć go od razu jako
+ * "skończone" (żeby przy kończeniu dopisać ocenę i myśl).
+ */
+export function openLibraryDialog(id, defaults = {}) {
+  const base = id ? store.state.library.find((x) => x.id === id) : { title: '', author: '', kind: 'książka', status: 'kolejka', rating: null, note: '', link: '' };
+  if (!base) return;
+  const x = { ...base, ...defaults };
+
+  showDialog(html`
+    <form method="dialog">
+      <h2 id="task-dialog-title">${defaults.status === 'skończone' ? `Skończone: ${x.title}` : id ? 'Edytuj' : 'Dodaj do biblioteki'}</h2>
+      <div class="field-row">
+        <label class="field">tytuł
+          <input class="input" name="title" required value="${x.title}">
+        </label>
+        <label class="field">autor / twórca
+          <input class="input" name="author" value="${x.author}">
+        </label>
+      </div>
+      <div class="field-row">
+        <label class="field">rodzaj
+          <select class="input" name="kind">${LIBRARY_KINDS.map((k) => option(k, k, k === x.kind))}</select>
+        </label>
+        <label class="field">status
+          <select class="input" name="status">${LIBRARY_STATUSES.map((st) => option(st.id, st.id, st.id === x.status))}</select>
+        </label>
+        <label class="field">ocena
+          <select class="input" name="rating">
+            ${option('', '— brak', !x.rating)}
+            ${[5, 4, 3, 2, 1].map((n) => option(n, '★'.repeat(n) + '☆'.repeat(5 - n), n === x.rating))}
+          </select>
+        </label>
+      </div>
+      <label class="field">jedna myśl — co zostało w głowie
+        <textarea class="input" name="note" rows="3">${x.note || ''}</textarea>
+      </label>
+      <label class="field">link (opcjonalnie)
+        <input class="input" name="link" type="url" placeholder="https://" value="${x.link || ''}">
+      </label>
+      <div class="dialog-actions">
+        <div></div>
+        <div>
+          <button class="btn" value="cancel" formnovalidate>Anuluj</button>
+          <button class="btn primary" value="save">Zapisz</button>
+        </div>
+      </div>
+    </form>`,
+  (f) => {
+    const data = {
+      title: String(f.get('title')).trim(),
+      author: String(f.get('author')).trim(),
+      kind: f.get('kind'),
+      status: f.get('status'),
+      rating: f.get('rating') ? Number(f.get('rating')) : null,
+      note: String(f.get('note')).trim(),
+      link: String(f.get('link')).trim(),
+    };
+    if (!data.title) return;
+    Object.assign(data, libraryDates(base, data.status));
+    if (id) store.patch('library', id, data);
+    else store.add('library', data);
+  });
+}
+
+/** Daty rozpoczęcia/zakończenia uzupełniane przy zmianie statusu. */
+export function libraryDates(item, status) {
+  const out = {};
+  if (status === 'w trakcie') { out.startedAt = item.startedAt || today(); out.finishedAt = null; }
+  if (status === 'skończone' || status === 'porzucone') { out.startedAt = item.startedAt || null; out.finishedAt = item.status === status && item.finishedAt ? item.finishedAt : today(); }
+  if (status === 'kolejka') { out.startedAt = null; out.finishedAt = null; }
+  return out;
+}
