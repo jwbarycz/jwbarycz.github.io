@@ -139,7 +139,13 @@ const loaded = adapter.load();
 let state = migrate(loaded);
 // "Dziewicze" dane = same przykłady, niczego jeszcze nie zmieniono. Takie dane przy pierwszym
 // połączeniu z GitHubem zastępujemy zdalnymi zamiast je scalać (żeby przykłady nie trafiły do repo).
-const onlySeed = (s) => [s.tasks, s.projects, s.ideas].every((list) => list.every((x) => x.seed));
+// Same przykłady = jest co najmniej jeden element, wszystkie są przykładowe, a dziennik nie ma własnych wpisów.
+// Puste dane NIE są "dziewicze" — mogą mieć np. wpis w dzienniku zrobiony offline.
+const onlySeed = (s) => {
+  const items = [...s.tasks, ...s.projects, ...s.ideas];
+  return items.length > 0 && items.every((x) => x.seed)
+    && Object.values(s.days).every((d) => d.seed || !(d.energy || d.mood || d.note));
+};
 if (!loaded || (loaded.version || 1) < 3 || onlySeed(state)) setPristine(true);
 adapter.save(state);
 const listeners = new Set();
