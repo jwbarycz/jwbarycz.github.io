@@ -1,7 +1,6 @@
 # Panel
 
 Osobisty panel zadań i produktywności.
-Czysty HTML/CSS/JS, bez builda — działa prosto z GitHub Pages.
 
 > 🌐 **Na żywo:** [jwbarycz.github.io](https://jwbarycz.github.io/)
 
