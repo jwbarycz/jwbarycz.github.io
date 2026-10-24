@@ -1,9 +1,9 @@
-// Wyliczenia dla projektów i dziennika.
+// Derived data for projects and the journal.
 
 import { store } from './store.js';
 import { today, addDays } from './utils.js';
 
-/* ---------- Projekty ---------- */
+/* ---------- Projects ---------- */
 
 export const PROJECT_STATUSES = [
   { id: 'aktywny', name: 'aktywny' },
@@ -20,7 +20,7 @@ export function projectStats(projectId) {
   return { tasks, total: tasks.length, done, open: open.length, pct: tasks.length ? Math.round((done / tasks.length) * 100) : 0, nextDue, lastDone };
 }
 
-/* ---------- Dziennik ---------- */
+/* ---------- Journal ---------- */
 
 export function journalEntries() {
   return Object.entries(store.state.days)
@@ -29,7 +29,7 @@ export function journalEntries() {
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 
-/** Seria energii z ostatnich n dni (null = brak wpisu). */
+/** Energy series for the last n days (null = no entry). */
 export function energySeries(days = 14) {
   return Array.from({ length: days }, (_, i) => {
     const date = addDays(today(), i - days + 1);

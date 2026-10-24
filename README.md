@@ -1,67 +1,64 @@
 # Panel
 
-Osobisty panel zadań i produktywności.
+A personal task and productivity dashboard. Plain HTML/CSS/JS with no build step, served straight from GitHub Pages. The interface is in Polish.
 
-> 🌐 **Na żywo:** [jwbarycz.github.io](https://jwbarycz.github.io/)
+> 🌐 **Live:** [jwbarycz.github.io](https://jwbarycz.github.io/)
 
-## Uruchomienie lokalnie
+## Running locally
 
 ```bash
 python3 -m http.server 8765
 ```
 
-Potem otwórz http://localhost:8765 (moduły ES nie działają z `file://`).
+Then open http://localhost:8765 (ES modules don't load from `file://`).
 
-## Synchronizacja (GitHub)
+## Sync (GitHub)
 
-Dane trzymane są w prywatnym repo [`jwbarycz/panel-data`](https://github.com/jwbarycz/panel-data) jako `data.json` — każda zmiana to commit.
+Data is stored in the private repo [`jwbarycz/panel-data`](https://github.com/jwbarycz/panel-data) as `data.json` — every change is a commit.
 
-1. Zrób [fine-grained token](https://github.com/settings/personal-access-tokens/new): *Only select repositories* → `panel-data`, *Contents: Read and write*.
-2. W panelu: **ustawienia** (stopka albo plakietka przy logo) → wklej token → **Połącz**.
-3. Powtórz krok 2 na każdym urządzeniu (ten sam token).
+1. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new): *Only select repositories* → `panel-data`, *Contents: Read and write*.
+2. In the panel: **ustawienia** (footer link or the badge next to the logo) → paste the token → **Połącz**.
+3. Repeat step 2 on every device (same token).
 
-Jak to działa: zmiany zapisują się od razu w przeglądarce, a po ~2 s ciszy idą do repo (kilka szybkich zmian = jeden commit).
-Panel pobiera nowości przy otwarciu, po powrocie do karty i co 3 minuty. Dwa urządzenia są scalane element po elemencie
-(wygrywa nowsza zmiana, usunięcia są zapamiętywane) — szczegóły w `js/merge.js`. Bez internetu wszystko działa, a zmiany
-wysyłają się po powrocie połączenia.
+How it works: changes are saved in the browser immediately and pushed to the repo after ~2 s of inactivity (several quick changes = one commit). The panel pulls updates when opened, when the tab becomes visible again and every 3 minutes. Two devices are merged item by item (the newer change wins, deletions are remembered) — see `js/merge.js`. Everything works offline; changes are pushed once the connection is back.
 
-## Zakładki
+## Tabs
 
-| Adres | Co jest |
+| Route | What it is |
 |---|---|
-| `#/` (logo) | **Panel** — podsumowanie: fokus, plan dnia, energia, pomysły, projekty, terminy |
-| `#/zadania` | lista w stylu bloga, pogrupowana: po terminie / dziś / nadchodzące / bez terminu / zrobione |
-| `#/projekty` | karty w stylu *Projects*; `#/projekty/<id>` — strona projektu z jego zadaniami |
-| `#/pomysly` | wrzutnia luźnych myśli; każdą jednym kliknięciem zamieniasz w zadanie albo projekt |
-| `#/dziennik` | energia 1–10, nastrój i notatka z każdego dnia + wykres |
-| `#/styl` | ściąga z design systemu (link w stopce) |
-| `#/ustawienia` | połączenie z GitHubem, kopia danych (JSON) |
+| `#/` (logo) | **Panel** — summary: focus, day plan, energy, ideas, projects, deadlines |
+| `#/zadania` | Tasks — blog-style list grouped into overdue / today / upcoming / no date / done |
+| `#/projekty` | Projects — cards with progress; `#/projekty/<id>` is a single project with its tasks |
+| `#/pomysly` | Ideas — an inbox for loose thoughts; turn any of them into a task or a project with one click |
+| `#/dziennik` | Journal — daily energy (1–10), mood and a note, plus a chart |
+| `#/styl` | Design-system cheat sheet (footer link) |
+| `#/ustawienia` | Settings — GitHub connection, data export (JSON) |
 
-## Struktura
+## Structure
 
-| Plik | Co robi |
+| File | Purpose |
 |---|---|
-| `index.html` | szkielet strony, nawigacja, fonty |
-| `css/style.css` | design system: tokeny kolorów, typografia, komponenty |
-| `js/config.js` | **ustawienia** — nazwa, kategorie, godziny dnia, repo z danymi |
-| `js/store.js` | stan aplikacji i zapis w przeglądarce (localStorage) |
-| `js/sync.js` | synchronizacja z repo `panel-data` przez GitHub Contents API |
-| `js/merge.js` | scalanie danych z dwóch urządzeń |
-| `js/tasks.js` | parser szybkiego dodawania, filtry i sortowanie zadań |
-| `js/insights.js` | wyliczenia: postęp projektów, energia |
-| `js/components.js` | zadanie (wiersz i wpis jak post), dialogi, wykres energii |
-| `js/views/*.js` | widoki zakładek |
+| `index.html` | page skeleton, navigation, fonts |
+| `css/style.css` | design system: color tokens, typography, components |
+| `js/config.js` | **settings** — name, categories, day hours, data repo |
+| `js/store.js` | app state and browser persistence (localStorage) |
+| `js/sync.js` | sync with the `panel-data` repo via the GitHub Contents API |
+| `js/merge.js` | merging data from two devices |
+| `js/tasks.js` | quick-add parser, task filters and sorting |
+| `js/insights.js` | derived data: project progress, energy |
+| `js/components.js` | task row and blog-style entry, dialogs, energy chart |
+| `js/views/*.js` | one file per tab |
 
-## Szybkie dodawanie
+## Quick add
 
 `Napisać esej !3 #kog @pt ^jutro`
 
-- `!1`–`!3` lub `!`/`!!`/`!!!` — priorytet
-- `#kat` — kategoria (wystarczy początek nazwy)
-- `@dziś` `@jutro` `@pt` `@30.10` `@2026-11-02` — termin
-- `+nazwa` — projekt (wystarczy początek nazwy)
-- `^jutro` itd. — zaplanuj na dzień
+- `!1`–`!3` or `!`/`!!`/`!!!` — priority
+- `#cat` — category (a prefix of the name is enough)
+- `@dziś` `@jutro` `@pt` `@30.10` `@2026-11-02` — due date
+- `+name` — project (a prefix of the name is enough)
+- `^jutro` etc. — plan for a given day
 
-## Skróty
+## Shortcuts
 
-`n` nowe zadanie · `t` motyw · `g` + `p` Panel / `z` Zadania / `r` Projekty / `i` Pomysły / `d` Dziennik / `s` Styl
+`n` new task · `t` theme · `g` + `p` Panel / `z` Tasks / `r` Projects / `i` Ideas / `d` Journal / `s` Style

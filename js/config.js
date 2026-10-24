@@ -1,20 +1,20 @@
-// Ustawienia panelu — wszystko, co personalne, jest w jednym miejscu.
+// Panel settings — everything personal lives in one place.
 
 export const config = {
-  // Nazwa w lewym górnym rogu i w tytule karty
+  // Name shown in the top-left corner and in the browser tab title
   name: 'Panel',
 
-  // Repozytoria (używane od fazy 2 — synchronizacja z GitHubem)
+  // Data repository used for GitHub sync
   github: {
-    owner: 'jwbarycz',  // login GitHub
+    owner: 'jwbarycz',  // GitHub username
     dataRepo: 'panel-data',
     branch: 'main',
   },
 
-  // Godziny "aktywnego dnia" — do paska postępu dnia na pulpicie
+  // "Active day" hours — drives the day progress bar on the home page
   day: { start: 7, end: 23 },
 
-  // Kategorie zadań. `color` to nazwa tokenu z css/style.css.
+  // Task categories. `color` is a token name from css/style.css.
   categories: [
     { id: 'inbox',       name: 'Inbox',          color: '--text-2' },
     { id: 'kognitywne',  name: 'Kognitywne',     color: '--info' },

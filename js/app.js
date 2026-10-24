@@ -1,4 +1,4 @@
-// Punkt wejścia: router, motyw, skróty klawiszowe, obsługa akcji.
+// Entry point: router, theme, keyboard shortcuts, action handling.
 
 import { config } from './config.js';
 import { store } from './store.js';
@@ -34,7 +34,7 @@ function currentRoute() {
 
 function render({ keepFocus = false } = {}) {
   const { route, param } = currentRoute();
-  // Zachowaj fokus w prompcie po dodaniu wpisu
+  // Keep focus in the prompt after adding an entry
   const activeId = keepFocus && document.activeElement?.closest('#view form') && document.activeElement.name;
   const activeForm = activeId && document.activeElement.form?.dataset.form;
   const scrollY = window.scrollY;
@@ -51,7 +51,7 @@ function render({ keepFocus = false } = {}) {
   if (keepFocus) window.scrollTo(0, scrollY);
 }
 
-/* ---------- Motyw ---------- */
+/* ---------- Theme ---------- */
 function setTheme(theme) {
   const root = document.documentElement;
   root.classList.remove('light', 'dark');
@@ -61,12 +61,12 @@ function setTheme(theme) {
 }
 const toggleTheme = () => setTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
 
-/* ---------- Akcje (delegacja zdarzeń) ---------- */
+/* ---------- Actions (event delegation) ---------- */
 function handleAction(action, el) {
   const id = el.dataset.id || el.closest('[data-id]')?.dataset.id;
   const t = id && store.task(id);
   switch (action) {
-    /* zadania */
+    /* tasks */
     case 'toggle':
       store.toggleDone(id);
       if (t?.done) toast('Zrobione ✓');
@@ -78,7 +78,7 @@ function handleAction(action, el) {
       store.setFocus(null);
       break;
     case 'tomorrow': {
-      // Termin, który już minął, też przesuwamy — inaczej zadanie zostałoby na dziś
+      // Move a past due date too — otherwise the task would stay on today
       const before = { plan: t.plan, due: t.due };
       const moveDue = t.due && t.due <= today();
       store.updateTask(id, { plan: addDays(today(), 1), ...(moveDue ? { due: addDays(today(), 1) } : {}) });
@@ -103,7 +103,7 @@ function handleAction(action, el) {
       render({ keepFocus: true });
       break;
 
-    /* projekty */
+    /* projects */
     case 'new-project':
       openProjectDialog(null);
       break;
@@ -124,7 +124,7 @@ function handleAction(action, el) {
       break;
     }
 
-    /* pomysły */
+    /* ideas */
     case 'idea-edit':
       openIdeaDialog(id);
       break;
@@ -158,7 +158,7 @@ function handleAction(action, el) {
       break;
     }
 
-    /* dziennik */
+    /* journal */
     case 'energy':
     case 'mood': {
       const date = el.closest('[data-date]')?.dataset.date || today();
@@ -181,7 +181,7 @@ updateBadge(sync.status);
 sync.start();
       break;
 
-    /* synchronizacja */
+    /* sync */
     case 'sync-now':
       sync.now().then(() => toast(sync.status.state === 'ok' ? 'Zsynchronizowano' : sync.status.message));
       break;
@@ -215,7 +215,7 @@ view.addEventListener('click', (e) => {
   if (fp) { tasksUi.project = tasksUi.project === fp.dataset.filterProject ? null : fp.dataset.filterProject; return render({ keepFocus: true }); }
 
   const el = e.target.closest('[data-action]');
-  if (!el || (el.tagName === 'INPUT' && el.type === 'checkbox')) return; // checkboxy obsługuje 'change'
+  if (!el || (el.tagName === 'INPUT' && el.type === 'checkbox')) return; // checkboxes are handled by 'change'
   handleAction(el.dataset.action, el);
 });
 
@@ -234,7 +234,7 @@ view.addEventListener('submit', (e) => {
     const parsed = parseQuick(input.value);
     if (!parsed.title) return;
     const { route, param } = currentRoute();
-    // Na stronie głównej nowe zadanie ląduje w planie dnia, na stronie projektu — w projekcie
+    // On the home page a new task goes into today's plan; on a project page — into that project
     if (route.id === 'panel' && !parsed.plan) parsed.plan = today();
     if (route.id === 'projekty' && param && !parsed.project) parsed.project = param;
     store.addTask(parsed);
@@ -275,7 +275,7 @@ sync.start();
   }
 });
 
-/* ---------- Skróty klawiszowe ---------- */
+/* ---------- Keyboard shortcuts ---------- */
 const JUMPS = { p: '#/', z: '#/zadania', r: '#/projekty', i: '#/pomysly', d: '#/dziennik', s: '#/styl' };
 let gPressed = 0;
 document.addEventListener('keydown', (e) => {
@@ -304,7 +304,7 @@ document.getElementById('logo').textContent = config.name;
 document.getElementById('footer-left').innerHTML =
   `${config.name} · <a href="#/ustawienia">ustawienia</a> · <a href="#/styl">styl</a>`;
 
-/* ---------- Plakietka synchronizacji przy logo ---------- */
+/* ---------- Sync badge next to the logo ---------- */
 const BADGE = {
   local: ['lokalnie', 'Dane tylko w tej przeglądarce — kliknij, żeby połączyć z GitHubem'],
   pending: ['zapisuję', 'Zmiany czekają na wysłanie'],
@@ -322,14 +322,14 @@ function updateBadge(st) {
 }
 sync.onStatus((st) => {
   updateBadge(st);
-  // Odśwież ustawienia, ale nie w trakcie wpisywania tokenu
+  // Refresh settings, but not while the token is being typed
   if (currentRoute().route.id === 'ustawienia' && !document.activeElement?.closest('#view input')) render({ keepFocus: true });
 });
 
 store.subscribe(() => render({ keepFocus: true }));
 window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
 
-// Co minutę odśwież widok (pasek dnia, przejście przez północ) — ale nie w trakcie pisania
+// Re-render every minute (day bar, crossing midnight) — but not while typing
 setInterval(() => {
   if (document.querySelector('dialog[open]') || document.activeElement?.closest('#view input, #view textarea')) return;
   render({ keepFocus: true });

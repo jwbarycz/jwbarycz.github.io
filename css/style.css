@@ -1,10 +1,10 @@
 /* ==========================================================================
    Panel — design system
-   Space Grotesk (nagłówki), JetBrains Mono (interfejs), Source Serif 4 (treść),
-   tło #0e1018 / #fff, akcent #ef5350, podkreślenia 3px, prefiksy "#".
+   Space Grotesk (headings), JetBrains Mono (UI), Source Serif 4 (body text),
+   background #0e1018 / #fff, accent #ef5350, 3px underlines, "#" heading prefixes.
    ========================================================================== */
 
-/* ---------- Tokeny ---------- */
+/* ---------- Tokens ---------- */
 :root {
   --header-font: 'Space Grotesk', 'Avenir Next', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   --text-font: 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
@@ -18,7 +18,7 @@
   --primary-color: #ef5350;
   --hover-color: #fff;
 
-  /* kolory kategorii / calloutów (wersja jasna) */
+  /* category / callout colors (light theme) */
   --info: #1e88e5;
   --warning: #ef6c00;
   --success: #2e7d32;
@@ -62,7 +62,7 @@
   color-scheme: dark;
 }
 
-/* ---------- Baza ---------- */
+/* ---------- Base ---------- */
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
@@ -139,7 +139,7 @@ blockquote {
 
 :focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
 
-/* ---------- Nagłówki (prefiksy "#") ---------- */
+/* ---------- Headings ("#" prefixes) ---------- */
 h1, h2, h3, h4 {
   font-family: var(--header-font);
   font-weight: 600;
@@ -147,7 +147,7 @@ h1, h2, h3, h4 {
   margin: 2em 0 0.75em;
   font-size: 1.2rem;
 }
-/* Sekcje strony mają "#", podsekcje "##" (tytuł strony bez prefiksu) */
+/* Page sections get "#", subsections "##" (the page title has no prefix) */
 h2::before { content: "# "; color: var(--primary-color); }
 h3::before { content: "## "; color: var(--primary-color); }
 h4::before { content: "### "; color: var(--primary-color); }
@@ -174,7 +174,7 @@ h4::before { content: "### "; color: var(--primary-color); }
 .section-head > h2, .section-head > h3 { margin: 0; }
 .section-head .meta { font-size: 0.8rem; color: var(--text-1); }
 
-/* ---------- Nawigacja ---------- */
+/* ---------- Navigation ---------- */
 nav.top {
   display: flex;
   flex-wrap: wrap;
@@ -236,7 +236,7 @@ a.sync-badge:hover { background: transparent; color: var(--text-0); border-color
   nav.top .right-nav a { font-size: 0.85rem; }
 }
 
-/* ---------- Przyciski ---------- */
+/* ---------- Buttons ---------- */
 .btn {
   appearance: none;
   font: inherit;
@@ -273,7 +273,7 @@ a.sync-badge:hover { background: transparent; color: var(--text-0); border-color
 }
 .link-btn:hover { background: var(--primary-color); color: var(--hover-color); }
 
-/* ---------- Formularze ---------- */
+/* ---------- Forms ---------- */
 .input, select.input, textarea.input {
   font: inherit;
   font-size: 0.9rem;
@@ -293,7 +293,7 @@ label.field { display: grid; gap: 0.35rem; font-size: 0.75rem; color: var(--text
 
 .check-label { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer; }
 
-/* Prompt "terminalowy" do szybkiego dodawania */
+/* Terminal-style quick-add prompt */
 .prompt {
   display: flex;
   align-items: center;
@@ -350,7 +350,7 @@ label.field { display: grid; gap: 0.35rem; font-size: 0.75rem; color: var(--text
 .check:checked { background: var(--primary-color); border-color: var(--primary-color); }
 .check:checked::after { transform: scale(1); }
 
-/* ---------- Karty ---------- */
+/* ---------- Cards ---------- */
 .card {
   background: var(--surface);
   border: 2px solid var(--border-color);
@@ -374,10 +374,10 @@ label.field { display: grid; gap: 0.35rem; font-size: 0.75rem; color: var(--text
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
 }
 
-/* Karta kategorii — kolorowa krawędź u góry */
+/* Category card — colored top border */
 .cat-card { border-top-width: 4px; border-top-color: var(--cat, var(--border-color)); }
 
-/* ---------- Callouty ---------- */
+/* ---------- Callouts ---------- */
 .note {
   border-left: 5px solid var(--note, var(--primary-color));
   border-radius: var(--radius-sm);
@@ -403,7 +403,7 @@ label.field { display: grid; gap: 0.35rem; font-size: 0.75rem; color: var(--text
 .note.tip { --note: var(--tip); }
 .note.danger { --note: var(--primary-color); }
 
-/* ---------- Pasek postępu ---------- */
+/* ---------- Progress bar ---------- */
 .progress {
   height: 6px;
   border-radius: 999px;
@@ -430,7 +430,7 @@ label.field { display: grid; gap: 0.35rem; font-size: 0.75rem; color: var(--text
 .stat .value small { font-size: 0.55em; color: var(--text-1); font-weight: 400; }
 .stat .progress { margin-top: 0.4rem; }
 
-/* ---------- Tagi / chipy ---------- */
+/* ---------- Tags / chips ---------- */
 .chip {
   font-family: var(--text-font);
   display: inline-flex;
@@ -461,7 +461,7 @@ label.field { display: grid; gap: 0.35rem; font-size: 0.75rem; color: var(--text
 .chips-filter .chip { cursor: pointer; font: inherit; font-size: 0.72rem; background: transparent; }
 .chips-filter .chip[aria-pressed="true"] { color: var(--text-0); border-color: var(--cat, var(--primary-color)); background: color-mix(in srgb, var(--cat, var(--primary-color)) 12%, transparent); }
 
-/* ---------- Wiersz zadania ---------- */
+/* ---------- Task row ---------- */
 .task-list { list-style: none; margin: 0; padding: 0; }
 .task {
   display: grid;
@@ -491,7 +491,7 @@ label.field { display: grid; gap: 0.35rem; font-size: 0.75rem; color: var(--text
 .task.done .title { color: var(--text-1); text-decoration: line-through; text-decoration-color: var(--primary-color); text-decoration-thickness: 3px; }
 .task.is-focus .title::before { content: "★ "; color: var(--primary-color); font-family: var(--text-font); font-size: 0.85em; }
 
-/* Akcje pojawiają się na hover nad końcem wiersza, nie zabierając miejsca tytułowi */
+/* Actions appear on hover over the end of the row without taking space from the title */
 .task .actions {
   position: absolute;
   top: 0.4rem;
@@ -506,7 +506,7 @@ label.field { display: grid; gap: 0.35rem; font-size: 0.75rem; color: var(--text
 }
 .task:hover .actions, .task:focus-within .actions { opacity: 1; pointer-events: auto; }
 .card .task, .note .task, .focus-card .task { --row-bg: var(--surface); }
-/* Ekrany dotykowe: akcje zawsze widoczne, w osobnym wierszu pod tytułem */
+/* Touch screens: actions always visible, on their own line below the title */
 @media (hover: none) {
   .task .actions { position: static; grid-column: -2 / -1; opacity: 1; pointer-events: auto; padding: 0; margin-top: -0.2rem; background: none; gap: 0.6rem; }
 }
@@ -514,7 +514,7 @@ label.field { display: grid; gap: 0.35rem; font-size: 0.75rem; color: var(--text
 .task .actions .icon-btn:hover { color: var(--primary-color); }
 .task .actions .icon-btn svg { width: 15px; height: 15px; }
 
-/* Lista w stylu listy postów: data po lewej */
+/* Blog-style list: date on the left */
 .post-list .task { grid-template-columns: 6.6rem auto 1fr; }
 .post-list .task time { font-size: 0.78rem; color: var(--text-1); padding-top: 0.2rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .post-list .task time.overdue { color: var(--primary-color); }
@@ -534,7 +534,7 @@ label.field { display: grid; gap: 0.35rem; font-size: 0.75rem; color: var(--text
   font-size: 0.95rem;
 }
 
-/* ---------- Fokus dnia ---------- */
+/* ---------- Focus of the day ---------- */
 .focus-card {
   position: relative;
   border: 2px solid var(--border-color);
@@ -556,7 +556,7 @@ label.field { display: grid; gap: 0.35rem; font-size: 0.75rem; color: var(--text
 .focus-card .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .focus-card.empty-state .focus-title { font-family: var(--paragraph-font); font-weight: 400; font-style: italic; font-size: 1.1rem; color: var(--text-1); }
 
-/* ---------- Linia daty / postęp dnia ---------- */
+/* ---------- Date line / day progress ---------- */
 .dateline { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: baseline; color: var(--text-1); font-size: 0.85rem; }
 .dateline time { color: var(--text-1); }
 .daybar { display: grid; grid-template-columns: 1fr auto; gap: 0.75rem; align-items: center; margin-top: 1rem; font-size: 0.75rem; color: var(--text-1); }
@@ -599,7 +599,7 @@ dialog .dialog-actions > div { display: flex; gap: 0.5rem; }
 .toast.show { transform: translate(-50%, 0); visibility: visible; }
 .toast button { appearance: none; background: none; border: 0; color: var(--primary-color); font: inherit; font-weight: 700; cursor: pointer; }
 
-/* ---------- Stopka ---------- */
+/* ---------- Footer ---------- */
 footer.site {
   margin-top: 4rem;
   padding-top: 1rem;
@@ -612,7 +612,7 @@ footer.site {
   gap: 0.5rem;
 }
 
-/* ---------- Strona /styl ---------- */
+/* ---------- /styl page ---------- */
 .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.75rem; }
 .swatch { border: 2px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden; font-size: 0.7rem; }
 .swatch .c { height: 52px; background: var(--c); border-bottom: 2px solid var(--border-color); }
@@ -625,12 +625,12 @@ footer.site {
   *, *::before, *::after { transition: none !important; }
 }
 
-/* Ikona motywu: słońce w ciemnym, księżyc w jasnym */
+/* Theme icon: sun in dark mode, moon in light mode */
 :root.dark #theme-toggle .moon, :root.light #theme-toggle .sun { display: none; }
 
 
 /* ==========================================================================
-   Układ v2: strona główna + zakładki
+   Layout v2: home page + tabs
    ========================================================================== */
 
 .section-content { font-family: var(--paragraph-font); margin: 0; max-width: 46rem; }
@@ -643,7 +643,7 @@ h2.list-section .count { font-family: var(--text-font); font-size: 0.7rem; font-
 a.chip-link { border-bottom: 1px solid var(--border-color); }
 a.chip-link:hover { background: var(--primary-color); color: #fff; }
 
-/* ---------- Lista w stylu /posts ---------- */
+/* ---------- Blog-style list ---------- */
 .post-list { list-style: none; margin: 0; padding: 0; }
 .post-list .list-item { margin-bottom: 1.75rem; list-style: none; }
 .post-header { display: grid; grid-template-columns: 6.4rem minmax(0, 1fr); gap: 1rem; align-items: baseline; }
@@ -680,7 +680,7 @@ h3.post-title::before { content: "# "; }
   .post-header { grid-template-columns: 1fr; gap: 0.35rem; }
 }
 
-/* ---------- Karty w stylu /projects ---------- */
+/* ---------- Project cards ---------- */
 .cards { display: grid; gap: 24px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 640px) { .cards { grid-template-columns: 1fr; gap: 18px; } }
 .pcard { background: var(--card-bg); border: 0; border-radius: var(--radius); padding: 0; overflow: hidden; }
@@ -717,12 +717,12 @@ h3.card-title::before { content: "# "; }
 .project-head { margin-top: 1.75rem; }
 .stat .value.small { font-size: 1.15rem; padding-top: 0.45rem; }
 
-/* ---------- Pomysły ---------- */
+/* ---------- Ideas ---------- */
 .list-item.converted .post-title .title-text { color: var(--text-1); }
 .converted-to { font-family: var(--paragraph-font); font-size: 0.9rem; color: var(--text-1); display: inline-flex; gap: 0.4rem; align-items: baseline; flex-wrap: wrap; }
 .mini-foot { font-size: 0.72rem; color: var(--text-1); margin: 0.5rem 0 0; }
 
-/* ---------- Check-in: energia i nastrój ---------- */
+/* ---------- Check-in: energy and mood ---------- */
 .checkin { display: grid; gap: 0.7rem; }
 .checkin-row { display: grid; gap: 0.35rem; }
 .checkin-row .label { font-size: 0.7rem; color: var(--text-1); }
@@ -738,7 +738,7 @@ h3.card-title::before { content: "# "; }
 .scale-btn.on { background: var(--primary-color); border-color: var(--primary-color); color: #fff; }
 .scale.mood .scale-btn { font-size: 0.66rem; }
 
-/* ---------- Wykres energii ---------- */
+/* ---------- Energy chart ---------- */
 .chart-box { border: 2px solid var(--border-color); border-radius: var(--radius); padding: 0.8rem 0.9rem 0.5rem; }
 .chart-box.small { border: 0; padding: 0; margin-top: 0.8rem; }
 .sparkline { display: block; width: 100%; height: 90px; overflow: visible; }
@@ -749,7 +749,7 @@ h3.card-title::before { content: "# "; }
 .chart-axis { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-2); margin-top: 0.3rem; }
 .energy-bar { font-family: var(--text-font); color: var(--primary-color); letter-spacing: 1px; font-size: 0.75rem; }
 
-/* ---------- Strona główna ---------- */
+/* ---------- Home page ---------- */
 .stats-top { margin-top: 2rem; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
 .home-grid { display: grid; gap: 0 2.75rem; }
 @media (min-width: 900px) { .home-grid { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); } }

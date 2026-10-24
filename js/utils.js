@@ -1,8 +1,8 @@
-// Drobne narzędzia: daty, HTML, id.
+// Small helpers: dates, HTML, ids.
 
 export const pad = (n) => String(n).padStart(2, '0');
 
-/** Data lokalna jako 'YYYY-MM-DD'. */
+/** Local date as 'YYYY-MM-DD'. */
 export function isoDate(d = new Date()) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
@@ -34,7 +34,7 @@ export function longDate(iso = today()) {
   return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-/** Numer tygodnia ISO-8601. */
+/** ISO-8601 week number. */
 export function isoWeek(iso = today()) {
   const d = parseIso(iso);
   d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
@@ -42,7 +42,7 @@ export function isoWeek(iso = today()) {
   return 1 + Math.round(((d - jan4) / 86400000 - 3 + ((jan4.getDay() + 6) % 7)) / 7);
 }
 
-/** Krótki, ludzki opis terminu: "dziś", "jutro", "pt 30.10", "3 dni temu". */
+/** Short human-friendly date (in Polish): "dziś", "jutro", "pt 30.10", "3 dni temu". */
 export function relDate(iso) {
   if (!iso) return '';
   const diff = daysBetween(today(), iso);
@@ -62,10 +62,10 @@ export function uid() {
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 
-/** Bezpieczny fragment HTML — nie jest ponownie escapowany przy zagnieżdżaniu. */
+/** Safe HTML fragment — not escaped again when nested. */
 class SafeHtml extends String {}
 
-/** Tagged template, który escapuje wartości (poza zagnieżdżonymi `html` / `raw`). */
+/** Tagged template that escapes values (except nested `html` / `raw`). */
 export function html(strings, ...values) {
   return new SafeHtml(strings.reduce((out, str, i) => {
     const v = values[i - 1];

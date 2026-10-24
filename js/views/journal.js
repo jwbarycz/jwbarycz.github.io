@@ -1,11 +1,11 @@
-// Widok "Dziennik" — energia, nastrój i krótka notatka z każdego dnia.
+// "Dziennik" (Journal) view — energy, mood and a short note for each day.
 
 import { store } from '../store.js';
 import { html, today, longDate } from '../utils.js';
 import { journalEntries, energySeries, avg, MOOD_NAMES } from '../insights.js';
 import { checkin, sparkline } from '../components.js';
 
-// Dzień edytowany w karcie u góry (domyślnie dziś, klik w "Edytuj" przy wpisie go zmienia)
+// Day edited in the top card (today by default; "Edytuj" on an entry switches it)
 export const ui = { date: null };
 
 const energyBar = (n) => html`<span class="energy-bar" aria-hidden="true">${'▮'.repeat(n)}<span class="faint">${'▯'.repeat(10 - n)}</span></span>`;

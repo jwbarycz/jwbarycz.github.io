@@ -1,4 +1,4 @@
-// Logika zadań: parser szybkiego dodawania, selektory, sortowanie.
+// Task logic: quick-add parser, selectors, sorting.
 
 import { config } from './config.js';
 import { store } from './store.js';
@@ -45,7 +45,7 @@ function matchCategory(tok) {
 /**
  * "Zadzwonić do banku !2 #adm @pt" →
  * { title: 'Zadzwonić do banku', prio: 2, cat: 'administracja', due: '2026-10-30' }
- * `^dzis` / `^jutro` planuje zadanie na dany dzień (bez terminu), `+nazwa` przypisuje projekt.
+ * `^dzis` / `^jutro` plans the task for a day (without a due date), `+name` assigns a project.
  */
 export function parseQuick(input) {
   const out = {};
@@ -64,13 +64,13 @@ export function parseQuick(input) {
   return out;
 }
 
-/* ---------- Selektory ---------- */
+/* ---------- Selectors ---------- */
 
 const t0 = () => today();
 
 export const isOverdue = (t) => !t.done && t.due && t.due < t0();
 
-/** Zadanie należy do dzisiejszego planu (zaległe plany przechodzą na dziś). */
+/** Task belongs to today's plan (overdue plans roll over to today). */
 export const isForToday = (t) =>
   t.done ? t.doneAt === t0() && ((t.plan && t.plan <= t0()) || (t.due && t.due <= t0()))
          : (t.plan && t.plan <= t0()) || (t.due && t.due <= t0());
@@ -78,7 +78,7 @@ export const isForToday = (t) =>
 export const isUpcoming = (t) => !t.done && !isForToday(t) && (t.plan || t.due);
 export const isSomeday = (t) => !t.done && !t.plan && !t.due;
 
-/** Data, którą pokazujemy w lewej kolumnie listy. */
+/** Date shown in the left column of the list. */
 export const displayDate = (t) => (t.done ? t.doneAt : t.due || t.plan || null);
 
 export function sortTasks(list) {

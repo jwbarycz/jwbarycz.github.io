@@ -1,4 +1,4 @@
-// Strona główna "Panel" — podsumowanie dnia i wszystkich zakładek.
+// Home page — summary of the day and every tab.
 
 import { config, categoryById } from '../config.js';
 import { store } from '../store.js';
@@ -111,7 +111,7 @@ export function renderHome() {
   const s14 = energySeries(14);
   const energy7 = avg(s14.slice(-7).map((x) => x.value));
 
-  // Plan dnia: karty kategorii, bez fokusu i zaległych (mają własne sekcje)
+  // Day plan: category cards, without the focus task and overdue ones (they have their own sections)
   const groups = groupByCategory(sortTasks(todays.filter((x) => x.id !== focusId && !isOverdue(x))))
     .filter((g) => g.tasks.length || g.cat.id !== 'inbox');
 

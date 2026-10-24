@@ -1,5 +1,5 @@
-// Widok "Pomysły" — szybka wrzutnia na luźne myśli. Każdą można jednym
-// kliknięciem zamienić w zadanie albo projekt (pomysł zostaje, z linkiem do wyniku).
+// "Pomysły" (Ideas) view — a quick inbox for loose thoughts. Any of them can be turned
+// into a task or a project with one click (the idea stays, linking to the result).
 
 import { store } from '../store.js';
 import { html } from '../utils.js';
@@ -8,7 +8,7 @@ import { icons } from '../components.js';
 const day = (x) => x.createdAt.slice(0, 10);
 const newestFirst = (a, b) => b.createdAt.localeCompare(a.createdAt);
 
-/** Link do tego, czym pomysł się stał. */
+/** Link to whatever the idea turned into. */
 function convertedLink(c) {
   if (c.kind === 'project') {
     const p = store.project(c.id);

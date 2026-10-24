@@ -1,9 +1,9 @@
-// Scalanie dwóch wersji danych (np. z telefonu i z komputera).
-// Zasada: dla każdego elementu wygrywa nowsza zmiana (updatedAt), a usunięcie
-// wygrywa ze zmianami, które były przed nim. Bez zależności — da się testować w Node.
+// Merging two versions of the data (e.g. from a phone and a laptop).
+// Rule: for each item the newer change (updatedAt) wins, and a deletion wins
+// over changes made before it. No dependencies — testable in Node.
 
 const COLLECTIONS = ['tasks', 'projects', 'ideas'];
-// Ślady usunięć starsze niż pół roku można zapomnieć
+// Deletion markers older than half a year can be forgotten
 const TOMBSTONE_TTL_MS = 180 * 86400000;
 
 const stamp = (x) => x.updatedAt || x.createdAt || '';
@@ -40,14 +40,14 @@ export function mergeStates(a, b, now = Date.now()) {
   const deleted = mergeDeleted(a.deleted, b.deleted, now);
   const out = { version: Math.max(a.version || 1, b.version || 1), deleted, days: mergeDays(a.days, b.days) };
   for (const c of COLLECTIONS) out[c] = mergeList(a[c], b[c], deleted);
-  // Kolejność jak w aplikacji: zadania i pomysły od najnowszych, projekty od najstarszych
+  // Same order as the app: tasks and ideas newest first, projects oldest first
   out.tasks.sort(byCreated(-1));
   out.projects.sort(byCreated(1));
   out.ideas.sort(byCreated(-1));
   return out;
 }
 
-/** Porównanie treści (bez kolejności kluczy) — żeby nie robić pustych commitów. */
+/** Content comparison ignoring key order — avoids empty commits. */
 export function sameData(a, b) {
   return canonical(a) === canonical(b);
 }

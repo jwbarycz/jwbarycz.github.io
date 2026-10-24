@@ -1,4 +1,4 @@
-// Widok "Styl" — żywa ściąga design systemu (do akceptacji wyglądu i dalszej pracy).
+// "Styl" view — a live design-system cheat sheet.
 
 import { config } from '../config.js';
 import { html, today, addDays } from '../utils.js';
@@ -7,7 +7,7 @@ import { taskList, postTaskList, sparkline } from '../components.js';
 const swatch = (name, token, note = '') =>
   html`<div class="swatch"><div class="c" style="--c: var(${token})"></div><div class="t"><b>${name}</b>${token}${note ? html`<br>${note}` : ''}</div></div>`;
 
-// Przykładowe zadania tylko do podglądu — nie trafiają do danych
+// Preview-only sample tasks — never stored
 const demo = [
   { id: 'demo1', title: 'Zadanie z wysokim priorytetem', cat: 'kognitywne', prio: 3, plan: today(), due: today(), done: false, note: 'Notatka do zadania, pisana szeryfową czcionką.' },
   { id: 'demo2', title: 'Zadanie po terminie', cat: 'administracja', prio: 1, due: addDays(today(), -2), done: false },

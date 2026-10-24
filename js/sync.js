@@ -1,9 +1,9 @@
-// Synchronizacja z prywatnym repo na GitHubie (domyślnie jwbarycz/panel-data).
+// Sync with a private GitHub repo (jwbarycz/panel-data by default).
 //
-// Dane leżą w jednym pliku data.json. Każdy zapis to commit przez GitHub Contents API.
-// Cykl: pobierz plik -> scal z lokalnymi danymi (merge.js) -> zapisz wynik lokalnie
-// -> jeśli coś się zmieniło, wyślij commit. Gdy w międzyczasie inne urządzenie
-// zapisało swoją wersję (konflikt sha), cykl powtarza się od pobrania.
+// All data lives in a single data.json file; every save is a commit via the GitHub Contents API.
+// Cycle: fetch the file -> merge with local data (merge.js) -> store the result locally
+// -> if anything changed, commit it. If another device saved in the meantime
+// (sha conflict), the cycle starts again from the fetch.
 
 import { config } from './config.js';
 import { store } from './store.js';
@@ -25,7 +25,7 @@ class SyncError extends Error {
   constructor(kind, message) { super(message); this.kind = kind; }
 }
 
-/* ---------- Status (dla plakietki i ustawień) ---------- */
+/* ---------- Status (for the badge and settings) ---------- */
 
 const status = { state: 'local', message: '', lastSync: null };
 const statusListeners = new Set();
@@ -77,7 +77,7 @@ function fromBase64(b64) {
 
 const fileUrl = () => `${repoPath()}/contents/${FILE}?ref=${encodeURIComponent(config.github.branch)}`;
 
-/** → { data, sha } albo null, gdy pliku jeszcze nie ma. */
+/** → { data, sha }, or null when the file doesn't exist yet. */
 async function readRemote(token) {
   const res = await gh(fileUrl(), { token });
   if (res.status === 404) return null;
@@ -87,7 +87,7 @@ async function readRemote(token) {
   if (meta.encoding === 'base64' && meta.content) {
     text = fromBase64(meta.content);
   } else {
-    // Pliki > 1 MB API zwraca bez treści — wtedy pobieramy surową zawartość
+    // For files > 1 MB the API omits the content — fetch the raw file instead
     const raw = await gh(fileUrl(), { token, accept: 'application/vnd.github.raw+json' });
     text = await raw.text();
   }
@@ -98,15 +98,15 @@ async function readRemote(token) {
   }
 }
 
-/** Zapisuje plik; zwraca false przy konflikcie (ktoś zapisał w międzyczasie). */
+/** Writes the file; returns false on conflict (someone saved in the meantime). */
 async function writeRemote(token, data, sha, { keepalive = false } = {}) {
-  const stampText = new Date().toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' });
+  const stampText = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
   const res = await gh(`${repoPath()}/contents/${FILE}`, {
     token,
     method: 'PUT',
     keepalive,
     body: {
-      message: `panel: zapis ${stampText}`,
+      message: `panel: save ${stampText}`,
       content: toBase64(JSON.stringify(data, null, 2) + '\n'),
       branch: config.github.branch,
       ...(sha ? { sha } : {}),
@@ -117,7 +117,7 @@ async function writeRemote(token, data, sha, { keepalive = false } = {}) {
   return true;
 }
 
-/* ---------- Cykl synchronizacji ---------- */
+/* ---------- Sync cycle ---------- */
 
 async function syncOnce(token, { keepalive = false } = {}) {
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -125,7 +125,7 @@ async function syncOnce(token, { keepalive = false } = {}) {
     const local = store.state;
     let next;
     if (!remote) next = local;
-    else if (store.pristine) next = remote.data; // nowe urządzenie: bierzemy dane z repo zamiast przykładów
+    else if (store.pristine) next = remote.data; // new device: take the repo data instead of the sample data
     else next = mergeStates(local, remote.data);
 
     if (!sameData(next, local)) store.replace(next);
@@ -143,7 +143,7 @@ async function syncOnce(token, { keepalive = false } = {}) {
 let chain = Promise.resolve();
 let pushTimer = null;
 
-/** Synchronizacje idą jedna po drugiej, nigdy równolegle. */
+/** Syncs run one after another, never in parallel. */
 function enqueue(opts) {
   const token = ls.get(TOKEN_KEY);
   if (!token) return chain;
@@ -160,7 +160,7 @@ function enqueue(opts) {
   return chain;
 }
 
-/* ---------- API dla reszty aplikacji ---------- */
+/* ---------- Public API ---------- */
 
 export const sync = {
   get status() { return { ...status }; },
@@ -169,7 +169,7 @@ export const sync = {
 
   onStatus(fn) { statusListeners.add(fn); return () => statusListeners.delete(fn); },
 
-  /** Sprawdza token i dostęp do repo, zapisuje go i robi pierwszą synchronizację. */
+  /** Checks the token and repo access, stores the token and runs the first sync. */
   async connect(token) {
     token = token.trim();
     const res = await gh(repoPath(), { token }).catch((e) => e);
@@ -191,7 +191,7 @@ export const sync = {
   now() { clearTimeout(pushTimer); return enqueue(); },
 
   start() {
-    // Lokalna zmiana -> po chwili ciszy wysyłamy (kilka szybkich zmian = jeden commit)
+    // Local change -> push after a short pause (several quick changes = one commit)
     store.subscribe((_, { remote }) => {
       if (remote || !this.connected) return;
       ls.set(DIRTY_KEY, '1');
@@ -204,7 +204,7 @@ export const sync = {
     document.addEventListener('visibilitychange', () => {
       if (!this.connected) return;
       if (document.visibilityState === 'hidden' && this.dirty) {
-        // Zamykasz kartę / chowasz aplikację: wyślij od razu, nie czekaj na timer
+        // Tab closed / app hidden: push right away instead of waiting for the timer
         clearTimeout(pushTimer);
         enqueue({ keepalive: true });
       } else if (document.visibilityState === 'visible' && stale()) {

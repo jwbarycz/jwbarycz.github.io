@@ -1,4 +1,4 @@
-// Widok "Ustawienia" — połączenie z GitHubem i kopia danych.
+// "Ustawienia" (Settings) view — GitHub connection and data export.
 
 import { config } from '../config.js';
 import { sync } from '../sync.js';

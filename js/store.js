@@ -1,11 +1,11 @@
-// Stan aplikacji + zapis lokalny (localStorage).
-// Synchronizacja z GitHubem siedzi w sync.js — subskrybuje zmiany stąd
-// i podmienia stan po scaleniu (replace).
+// App state + local persistence (localStorage).
+// GitHub sync lives in sync.js — it subscribes to changes here
+// and swaps the state after merging (replace).
 //
-// Każdy element i dzień ma `updatedAt`, a usunięte id trafiają do `deleted`
-// (id → czas usunięcia). Dzięki temu dwa urządzenia da się scalić bez utraty zmian.
+// Every item and day has `updatedAt`, and deleted ids go into `deleted`
+// (id → deletion time), so two devices can be merged without losing changes.
 //
-// Kształt danych:
+// Data shape:
 //   tasks:    [{ id, title, cat, project, prio, due, plan, note, done, doneAt, createdAt }]
 //   projects: [{ id, name, desc, status, color, link, createdAt }]
 //   ideas:    [{ id, title, note, pinned, converted: { kind: 'task'|'project', id, at } | null, createdAt }]
@@ -38,7 +38,7 @@ const localAdapter = {
 
 const emptyState = () => ({ version: 5, tasks: [], projects: [], ideas: [], days: {}, deleted: {} });
 
-/* ---------- Przykładowe dane (oznaczone seed: true, do usunięcia jednym kliknięciem) ---------- */
+/* ---------- Sample data (marked seed: true, removable with one click) ---------- */
 
 function seedExtras(s) {
   const t = today();
@@ -61,7 +61,7 @@ function seedExtras(s) {
     idea('Założyć własnego bloga', { converted: { kind: 'project', id: pBlog.id, at: addDays(t, -3) }, createdAt: addDays(t, -12) + 'T22:15:00.000Z' }),
   );
 
-  // Dziennik z ostatnich tygodni — żeby wykres energii nie był pusty
+  // Journal for the past weeks — so the energy chart isn't empty
   const rnd = mulberry32(42);
   for (let i = 1; i <= 21; i++) {
     const day = (s.days[addDays(t, -i)] = {});
@@ -100,7 +100,7 @@ function seedState() {
   return s;
 }
 
-/** Deterministyczny generator losowy — przykładowe dane wyglądają tak samo przy każdym starcie. */
+/** Deterministic RNG — sample data looks the same on every start. */
 function mulberry32(a) {
   return () => {
     a |= 0; a = (a + 0x6d2b79f5) | 0;
@@ -110,7 +110,7 @@ function mulberry32(a) {
   };
 }
 
-/** Uzupełnia dane zapisane przez starszą wersję panelu. */
+/** Upgrades data saved by an older version of the panel. */
 function migrate(s) {
   if (!s) return seedState();
   s.tasks ||= [];
@@ -120,12 +120,12 @@ function migrate(s) {
   for (const t of s.tasks) if (!('project' in t)) t.project = null;
   s.deleted ||= {};
   if ((s.version || 1) < 3) {
-    // v3: nawyki zastąpione biblioteką. Przykładowe dane generujemy od nowa.
+    // v3: habits replaced by the library. Sample data is regenerated.
     delete s.habits;
     for (const d of Object.values(s.days)) delete d.habits;
     if (s.tasks.some((t) => t.seed)) return seedState();
   }
-  // v5: biblioteka zastąpiona pomysłami
+  // v5: library replaced by ideas
   delete s.library;
   s.version = 5;
   return s;
@@ -137,10 +137,10 @@ const nowIso = () => new Date().toISOString();
 let adapter = localAdapter;
 const loaded = adapter.load();
 let state = migrate(loaded);
-// "Dziewicze" dane = same przykłady, niczego jeszcze nie zmieniono. Takie dane przy pierwszym
-// połączeniu z GitHubem zastępujemy zdalnymi zamiast je scalać (żeby przykłady nie trafiły do repo).
-// Same przykłady = jest co najmniej jeden element, wszystkie są przykładowe, a dziennik nie ma własnych wpisów.
-// Puste dane NIE są "dziewicze" — mogą mieć np. wpis w dzienniku zrobiony offline.
+// "Pristine" data = sample data only, nothing changed yet. On the first GitHub connection it is
+// replaced by the remote data instead of merged (so samples never end up in the repo).
+// Sample-only = at least one item, all of them samples, and no real journal entries.
+// Empty data is NOT pristine — it may hold e.g. a journal entry written offline.
 const onlySeed = (s) => {
   const items = [...s.tasks, ...s.projects, ...s.ideas];
   return items.length > 0 && items.every((x) => x.seed)
@@ -161,10 +161,10 @@ export const store = {
     try { return localStorage.getItem(PRISTINE_KEY) === '1'; } catch { return false; }
   },
 
-  /** fn(state, { remote }) — remote: true, gdy zmiana przyszła z synchronizacji. */
+  /** fn(state, { remote }) — remote: true when the change came from sync. */
   subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
 
-  /** Każda lokalna zmiana przechodzi tędy: mutacja -> zapis -> powiadomienie widoków i synchronizacji. */
+  /** Every local change goes through here: mutate -> save -> notify views and sync. */
   update(mutator) {
     mutator(state);
     setPristine(false);
@@ -174,14 +174,14 @@ export const store = {
 
   clearPristine() { setPristine(false); },
 
-  /** Podmiana całego stanu (po scaleniu z GitHubem). */
+  /** Replaces the whole state (after merging with GitHub). */
   replace(next) {
     state = migrate(next);
     adapter.save(state);
     listeners.forEach((fn) => fn(state, { remote: true }));
   },
 
-  /* ---------- Zadania ---------- */
+  /* ---------- Tasks ---------- */
 
   task(id) { return state.tasks.find((t) => t.id === id); },
 
@@ -205,7 +205,7 @@ export const store = {
 
   removeTask(id) { return this.remove('tasks', id); },
 
-  /* ---------- Projekty i pomysły (wspólne operacje na kolekcjach) ---------- */
+  /* ---------- Projects and ideas (generic collection operations) ---------- */
 
   project(id) { return state.projects.find((p) => p.id === id); },
 
@@ -225,7 +225,7 @@ export const store = {
     });
   },
 
-  /** Usuwa i zwraca funkcję cofającą. */
+  /** Removes an item and returns an undo function. */
   remove(coll, id) {
     const idx = state[coll].findIndex((x) => x.id === id);
     if (idx < 0) return () => {};
@@ -240,7 +240,7 @@ export const store = {
     });
   },
 
-  /* ---------- Dni: fokus i dziennik ---------- */
+  /* ---------- Days: focus and journal ---------- */
 
   day(date = today()) { return state.days[date] || {}; },
 
@@ -250,7 +250,7 @@ export const store = {
 
   setFocus(id, date = today()) { this.patchDay(date, { focus: id }); },
 
-  /* ---------- Przykładowe dane ---------- */
+  /* ---------- Sample data ---------- */
 
   hasSeed() {
     return [state.tasks, state.projects, state.ideas].some((list) => list.some((x) => x.seed));

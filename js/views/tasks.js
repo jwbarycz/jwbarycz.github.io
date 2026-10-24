@@ -1,4 +1,4 @@
-// Widok "Zadania" — lista w stylu bloga.
+// "Zadania" (Tasks) view — a blog-style list.
 
 import { config } from '../config.js';
 import { store } from '../store.js';
@@ -6,7 +6,7 @@ import { html } from '../utils.js';
 import { isOverdue, isForToday, isUpcoming, isSomeday, sortTasks, sortDone } from '../tasks.js';
 import { postTaskList, quickAdd } from '../components.js';
 
-// Filtr kategorii/projektu żyje tylko w pamięci
+// Category/project filter lives in memory only
 export const ui = { cat: null, project: null, showAllDone: false };
 
 const DONE_LIMIT = 8;

@@ -1,5 +1,5 @@
-// Wspólne elementy UI: ikony, zadania (wiersz i wpis jak post), prompt,
-// dialogi edycji, toast, wykres energii.
+// Shared UI pieces: icons, tasks (compact row and post-style entry), prompt,
+// edit dialogs, toast, energy chart.
 
 import { config, categoryById } from './config.js';
 import { html, raw, relDate, today, addDays } from './utils.js';
@@ -50,8 +50,8 @@ function taskActions(t, context) {
 }
 
 /**
- * Kompaktowy wiersz zadania z checkboxem (karty na stronie głównej).
- * opts.showCat / opts.showProject — chipy, opts.context — 'today' | 'list'
+ * Compact task row with a checkbox (cards on the home page).
+ * opts.showCat / opts.showProject — chips, opts.context — 'today' | 'list'
  */
 export function taskRow(t, opts = {}) {
   const focusId = store.day().focus;
@@ -80,8 +80,8 @@ export function taskList(tasks, opts = {}, emptyText = 'Pusto.') {
 }
 
 /**
- * Zadanie jako wpis na liście w stylu bloga:
- * data po lewej, "# Tytuł", opis szeryfem, link w stylu "Read more ⟶".
+ * Task as a blog-style list entry:
+ * date on the left, "# Title", serif description, "Read more ⟶"-style link.
  */
 export function postTask(t, opts = {}) {
   const focusId = store.day().focus;
@@ -133,7 +133,7 @@ export function quickAdd(placeholder) {
     </form>`;
 }
 
-/* ---------- Wykres energii (sparkline) ---------- */
+/* ---------- Energy chart (sparkline) ---------- */
 
 export function sparkline(series, { height = 64, max = 10 } = {}) {
   const w = 300;
@@ -153,7 +153,7 @@ export function sparkline(series, { height = 64, max = 10 } = {}) {
     <path class="area" d="${area}"/><path class="line" d="${path}" vector-effect="non-scaling-stroke"/><g class="dots">${dots}</g></svg>`);
 }
 
-/* ---------- Check-in dnia: energia + nastrój ---------- */
+/* ---------- Daily check-in: energy + mood ---------- */
 
 export function checkin(date = today()) {
   const d = store.day(date);
@@ -176,7 +176,7 @@ export function checkin(date = today()) {
     </div>`;
 }
 
-/* ---------- Toast z cofaniem ---------- */
+/* ---------- Toast with undo ---------- */
 let toastTimer;
 export function toast(msg, undo) {
   const el = document.getElementById('toast');
@@ -189,7 +189,7 @@ export function toast(msg, undo) {
   toastTimer = setTimeout(() => el.classList.remove('show'), undo ? 5000 : 2200);
 }
 
-/* ---------- Dialogi ---------- */
+/* ---------- Dialogs ---------- */
 
 function showDialog(markup, onSave, onReady) {
   const dlg = document.getElementById('task-dialog');

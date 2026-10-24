@@ -1,4 +1,4 @@
-// Widok "Projekty" — karty projektów, plus strona projektu.
+// "Projekty" (Projects) view — project cards, plus a single project page.
 
 import { store } from '../store.js';
 import { html, relDate } from '../utils.js';
@@ -6,7 +6,7 @@ import { sortTasks, sortDone } from '../tasks.js';
 import { projectStats, PROJECT_STATUSES } from '../insights.js';
 import { postTaskList, quickAdd } from '../components.js';
 
-/** Zamiast zdjęcia: kolorowe pole z postępem i kratką zadań (pełna = zrobione). */
+/** Instead of an image: a colored panel with progress and a task grid (filled = done). */
 function projectMedia(p, s) {
   const dots = s.tasks
     .slice()
