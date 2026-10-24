@@ -8,7 +8,7 @@
 // Kształt danych:
 //   tasks:    [{ id, title, cat, project, prio, due, plan, note, done, doneAt, createdAt }]
 //   projects: [{ id, name, desc, status, color, link, createdAt }]
-//   library:  [{ id, title, author, kind, status, rating, note, link, startedAt, finishedAt, createdAt }]
+//   ideas:    [{ id, title, note, pinned, converted: { kind: 'task'|'project', id, at } | null, createdAt }]
 //   days:     { 'YYYY-MM-DD': { focus, energy, mood, note, updatedAt } }
 //   deleted:  { id: ISO }
 
@@ -36,7 +36,7 @@ const localAdapter = {
   },
 };
 
-const emptyState = () => ({ version: 4, tasks: [], projects: [], library: [], days: {}, deleted: {} });
+const emptyState = () => ({ version: 5, tasks: [], projects: [], ideas: [], days: {}, deleted: {} });
 
 /* ---------- Przykładowe dane (oznaczone seed: true, do usunięcia jednym kliknięciem) ---------- */
 
@@ -51,22 +51,14 @@ function seedExtras(s) {
   const pBlog = proj('Blog', 'Pomysł na przyszłość: pisać o tym, czego się uczę.', '--tip', { status: 'wstrzymany' });
   s.projects.push(pPanel, pPython, pPokoj, pBlog);
 
-  const item = (title, author, kind, status, extra = {}) => ({
-    id: uid(), title, author, kind, status, rating: null, note: '', link: '',
-    startedAt: null, finishedAt: null, createdAt: now, seed: true, ...extra,
-  });
-  s.library.push(
-    item('Głęboka praca', 'Cal Newport', 'książka', 'w trakcie', { startedAt: addDays(t, -9) }),
-    item('Python Crash Course', 'Eric Matthes', 'kurs', 'w trakcie', { startedAt: addDays(t, -20), note: 'Rozdziały 1–6 za mną. Najlepsze są projekty na końcu.' }),
-    item('Gödel, Escher, Bach', 'Douglas Hofstadter', 'książka', 'kolejka', { note: 'Klasyk o logice, matematyce i świadomości.' }),
-    item('Diuna', 'Frank Herbert', 'książka', 'kolejka'),
-    item('Essence of Linear Algebra', '3Blue1Brown', 'kurs', 'kolejka', { link: 'https://www.3blue1brown.com/topics/linear-algebra' }),
-    item('Spider-Man: Poprzez multiwersum', 'J. Dos Santos, K. Powers, J. Thompson', 'film', 'skończone',
-      { rating: 5, finishedAt: addDays(t, -12), note: 'Każda klatka mogłaby wisieć na ścianie.' }),
-    item('Kot w butach: Ostatnie życzenie', 'Joel Crawford', 'film', 'skończone',
-      { rating: 5, finishedAt: addDays(t, -30), note: 'Zaskakująco dojrzały film o strachu przed śmiercią.' }),
-    item('Atomic Habits', 'James Clear', 'książka', 'porzucone',
-      { rating: 2, finishedAt: addDays(t, -60), note: 'Za dużo liczenia szklanek wody. Nie dla mnie.' }),
+  const idea = (title, extra = {}) =>
+    ({ id: uid(), title, note: '', pinned: false, converted: null, createdAt: now, seed: true, ...extra });
+  s.ideas.push(
+    idea('Nagrać krótki film o tym, jak zbudowałem ten panel', { pinned: true, note: 'Od pomysłu, przez wygląd, po synchronizację z GitHubem.', createdAt: addDays(t, -2) + 'T19:10:00.000Z' }),
+    idea('Tracker książek i filmów w panelu', { note: 'Może kiedyś jako osobna zakładka.', createdAt: addDays(t, -5) + 'T21:00:00.000Z' }),
+    idea('Wypad w góry jesienią — sprawdzić noclegi', { createdAt: addDays(t, -1) + 'T08:30:00.000Z' }),
+    idea('Skrypt w Pythonie, który sam sortuje pobrane pliki', { createdAt: addDays(t, -8) + 'T17:45:00.000Z' }),
+    idea('Założyć własnego bloga', { converted: { kind: 'project', id: pBlog.id, at: addDays(t, -3) }, createdAt: addDays(t, -12) + 'T22:15:00.000Z' }),
   );
 
   // Dziennik z ostatnich tygodni — żeby wykres energii nie był pusty
@@ -102,7 +94,6 @@ function seedState() {
     mk('Skonfigurować GitHub Pages', { cat: 'kognitywne', project: pPanel.id, done: true, doneAt: addDays(t, -2) }),
     mk('Zaprojektować wygląd panelu', { cat: 'kognitywne', project: pPanel.id, done: true, doneAt: addDays(t, -1) }),
     mk('Zainstalować Pythona i VS Code', { cat: 'lekkie', project: pPython.id, done: true, doneAt: addDays(t, -6) }),
-    mk('Pomysł: tracker książek w panelu', { note: 'Może jako osobny moduł później.' }),
     mk('Zarezerwować termin u dentysty', { cat: 'administracja', due: addDays(t, 8) }),
   );
   s.days[t] = { focus: focus.id, seed: true };
@@ -124,7 +115,7 @@ function migrate(s) {
   if (!s) return seedState();
   s.tasks ||= [];
   s.projects ||= [];
-  s.library ||= [];
+  s.ideas ||= [];
   s.days ||= {};
   for (const t of s.tasks) if (!('project' in t)) t.project = null;
   s.deleted ||= {};
@@ -134,7 +125,9 @@ function migrate(s) {
     for (const d of Object.values(s.days)) delete d.habits;
     if (s.tasks.some((t) => t.seed)) return seedState();
   }
-  s.version = 4;
+  // v5: biblioteka zastąpiona pomysłami
+  delete s.library;
+  s.version = 5;
   return s;
 }
 
@@ -146,7 +139,7 @@ const loaded = adapter.load();
 let state = migrate(loaded);
 // "Dziewicze" dane = same przykłady, niczego jeszcze nie zmieniono. Takie dane przy pierwszym
 // połączeniu z GitHubem zastępujemy zdalnymi zamiast je scalać (żeby przykłady nie trafiły do repo).
-const onlySeed = (s) => [s.tasks, s.projects, s.library].every((list) => list.every((x) => x.seed));
+const onlySeed = (s) => [s.tasks, s.projects, s.ideas].every((list) => list.every((x) => x.seed));
 if (!loaded || (loaded.version || 1) < 3 || onlySeed(state)) setPristine(true);
 adapter.save(state);
 const listeners = new Set();
@@ -206,7 +199,7 @@ export const store = {
 
   removeTask(id) { return this.remove('tasks', id); },
 
-  /* ---------- Projekty i biblioteka (wspólne operacje na kolekcjach) ---------- */
+  /* ---------- Projekty i pomysły (wspólne operacje na kolekcjach) ---------- */
 
   project(id) { return state.projects.find((p) => p.id === id); },
 
@@ -254,18 +247,18 @@ export const store = {
   /* ---------- Przykładowe dane ---------- */
 
   hasSeed() {
-    return [state.tasks, state.projects, state.library].some((list) => list.some((x) => x.seed));
+    return [state.tasks, state.projects, state.ideas].some((list) => list.some((x) => x.seed));
   },
 
   clearSeed() {
     const now = nowIso();
     this.update((s) => {
-      const seedIds = [s.tasks, s.projects, s.library].flatMap((list) => list.filter((x) => x.seed).map((x) => x.id));
+      const seedIds = [s.tasks, s.projects, s.ideas].flatMap((list) => list.filter((x) => x.seed).map((x) => x.id));
       const ids = new Set(seedIds);
       for (const id of seedIds) s.deleted[id] = now;
       s.tasks = s.tasks.filter((t) => !t.seed);
       s.projects = s.projects.filter((p) => !p.seed);
-      s.library = s.library.filter((x) => !x.seed);
+      s.ideas = s.ideas.filter((x) => !x.seed);
       for (const t of s.tasks) if (ids.has(t.project)) Object.assign(t, { project: null, updatedAt: now });
       for (const d of Object.values(s.days)) {
         const touched = ids.has(d.focus) || d.seed;

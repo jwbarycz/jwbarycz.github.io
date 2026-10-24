@@ -2,7 +2,7 @@
 // Zasada: dla każdego elementu wygrywa nowsza zmiana (updatedAt), a usunięcie
 // wygrywa ze zmianami, które były przed nim. Bez zależności — da się testować w Node.
 
-const COLLECTIONS = ['tasks', 'projects', 'library'];
+const COLLECTIONS = ['tasks', 'projects', 'ideas'];
 // Ślady usunięć starsze niż pół roku można zapomnieć
 const TOMBSTONE_TTL_MS = 180 * 86400000;
 
@@ -40,10 +40,10 @@ export function mergeStates(a, b, now = Date.now()) {
   const deleted = mergeDeleted(a.deleted, b.deleted, now);
   const out = { version: Math.max(a.version || 1, b.version || 1), deleted, days: mergeDays(a.days, b.days) };
   for (const c of COLLECTIONS) out[c] = mergeList(a[c], b[c], deleted);
-  // Kolejność jak w aplikacji: zadania od najnowszych, reszta od najstarszych
+  // Kolejność jak w aplikacji: zadania i pomysły od najnowszych, projekty od najstarszych
   out.tasks.sort(byCreated(-1));
   out.projects.sort(byCreated(1));
-  out.library.sort(byCreated(1));
+  out.ideas.sort(byCreated(-1));
   return out;
 }
 

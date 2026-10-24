@@ -4,7 +4,7 @@ import { config, categoryById } from '../config.js';
 import { store } from '../store.js';
 import { html, longDate, isoWeek, today, pad, plural, relDate, addDays } from '../utils.js';
 import { isForToday, isOverdue, sortTasks, groupByCategory, prioMark } from '../tasks.js';
-import { projectStats, energySeries, avg, finishedThisYear } from '../insights.js';
+import { projectStats, energySeries, avg } from '../insights.js';
 import { taskList, quickAdd, icons, checkin, sparkline, projectChip } from '../components.js';
 
 function dayProgress() {
@@ -50,19 +50,18 @@ function focusCard(todays) {
 
 const more = (href, label) => html`<a class="readmore" href="${href}">${label} ⟶</a>`;
 
-function libraryBox() {
-  const now = store.state.library.filter((x) => x.status === 'w trakcie');
-  const queue = store.state.library.filter((x) => x.status === 'kolejka').length;
+function ideasBox() {
+  const open = store.state.ideas.filter((x) => !x.converted)
+    .sort((a, b) => (b.pinned - a.pinned) || b.createdAt.localeCompare(a.createdAt));
+  if (!open.length) return html`<p class="empty">Brak pomysłów do przemyślenia.</p>`;
   return html`
-    ${now.length ? html`
-      <ul class="mini-list">
-        ${now.map((x) => html`
-          <li data-id="${x.id}">
-            <span class="mini-title" data-action="lib-edit">${x.title}${x.author ? html` <span class="muted">— ${x.author}</span>` : ''}</span>
-            <span class="mini-meta">${x.kind}</span>
-          </li>`)}
-      </ul>` : html`<p class="empty">Nic w trakcie.</p>`}
-    <p class="mini-foot">w kolejce: ${queue} · skończone w tym roku: ${finishedThisYear()}</p>`;
+    <ul class="mini-list">
+      ${open.slice(0, 4).map((x) => html`
+        <li data-id="${x.id}">
+          <span class="mini-title" data-action="idea-edit">${x.pinned ? html`<span class="accent">★ </span>` : ''}${x.title}</span>
+        </li>`)}
+    </ul>
+    ${open.length > 4 ? html`<p class="mini-foot">i ${open.length - 4} więcej</p>` : ''}`;
 }
 
 function projectsBox() {
@@ -130,7 +129,7 @@ export function renderHome() {
     ${store.hasSeed() ? html`
       <div class="note tip">
         <div class="note-head">Przykładowe dane</div>
-        <div class="note-body"><p>Zadania, projekty, biblioteka i wpisy w dzienniku są przykładowe, żeby było widać, jak panel wygląda. <button class="link-btn" data-action="clear-seed">Usuń je</button>, kiedy zaczniesz dodawać własne.</p></div>
+        <div class="note-body"><p>Zadania, projekty, pomysły i wpisy w dzienniku są przykładowe, żeby było widać, jak panel wygląda. <button class="link-btn" data-action="clear-seed">Usuń je</button>, kiedy zaczniesz dodawać własne.</p></div>
       </div>` : ''}
 
     <div class="stat-row stats-top">
@@ -186,9 +185,9 @@ export function renderHome() {
         <div class="chart-box small">${sparkline(s14, { height: 48 })}</div>
         <div class="post-links">${more('#/dziennik', 'Dziennik')}</div>
 
-        <h2 class="list-section">Teraz czytam / oglądam</h2>
-        ${libraryBox()}
-        <div class="post-links">${more('#/biblioteka', 'Biblioteka')}</div>
+        <h2 class="list-section">Pomysły</h2>
+        ${ideasBox()}
+        <div class="post-links">${more('#/pomysly', 'Wszystkie pomysły')}</div>
 
         <h2 class="list-section">Projekty</h2>
         ${projectsBox()}

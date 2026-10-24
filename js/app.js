@@ -4,12 +4,11 @@ import { config } from './config.js';
 import { store } from './store.js';
 import { today, addDays } from './utils.js';
 import { parseQuick } from './tasks.js';
-import { parseLibrary } from './insights.js';
-import { openTaskDialog, openProjectDialog, openLibraryDialog, libraryDates, toast } from './components.js';
+import { openTaskDialog, openProjectDialog, openIdeaDialog, toast } from './components.js';
 import { renderHome } from './views/home.js';
 import { renderTasks, ui as tasksUi } from './views/tasks.js';
 import { renderProjects, renderProject } from './views/projects.js';
-import { renderLibrary, ui as libraryUi } from './views/library.js';
+import { renderIdeas } from './views/ideas.js';
 import { renderJournal, ui as journalUi } from './views/journal.js';
 import { renderStyle } from './views/style.js';
 import { renderSettings, ui as settingsUi } from './views/settings.js';
@@ -19,7 +18,7 @@ const routes = {
   '': { id: 'panel', title: 'Panel', render: renderHome },
   zadania: { id: 'zadania', title: 'Zadania', render: renderTasks },
   projekty: { id: 'projekty', title: 'Projekty', render: (id) => (id ? renderProject(id) : renderProjects()) },
-  biblioteka: { id: 'biblioteka', title: 'Biblioteka', render: renderLibrary },
+  pomysly: { id: 'pomysly', title: 'Pomysły', render: renderIdeas },
   dziennik: { id: 'dziennik', title: 'Dziennik', render: renderJournal },
   styl: { id: 'styl', title: 'Styl', render: renderStyle },
   ustawienia: { id: 'ustawienia', title: 'Ustawienia', render: renderSettings },
@@ -125,29 +124,37 @@ function handleAction(action, el) {
       break;
     }
 
-    /* biblioteka */
-    case 'lib-edit':
-      openLibraryDialog(id);
+    /* pomysły */
+    case 'idea-edit':
+      openIdeaDialog(id);
       break;
-    case 'lib-start':
-      store.patch('library', id, { status: 'w trakcie', ...libraryDates(store.state.library.find((x) => x.id === id), 'w trakcie') });
-      toast('Przeniesione do „w trakcie”');
-      break;
-    case 'lib-finish':
-      // Przy kończeniu od razu pytamy o ocenę i jedną myśl
-      openLibraryDialog(id, { status: 'skończone' });
-      break;
-    case 'lib-drop': {
-      const item = store.state.library.find((x) => x.id === id);
-      const before = { status: item.status, startedAt: item.startedAt, finishedAt: item.finishedAt };
-      store.patch('library', id, { status: 'porzucone', ...libraryDates(item, 'porzucone') });
-      toast(`Porzucone: ${item.title}`, () => store.patch('library', id, before));
+    case 'idea-pin': {
+      const idea = store.state.ideas.find((x) => x.id === id);
+      store.patch('ideas', id, { pinned: !idea.pinned });
       break;
     }
-    case 'lib-delete': {
-      const item = store.state.library.find((x) => x.id === id);
-      const undo = store.remove('library', id);
-      toast(`Usunięto: ${item?.title ?? ''}`, undo);
+    case 'idea-to-task': {
+      const idea = store.state.ideas.find((x) => x.id === id);
+      const task = store.addTask({ title: idea.title, note: idea.note });
+      store.patch('ideas', id, { converted: { kind: 'task', id: task.id, at: today() }, pinned: false });
+      toast('Pomysł → zadanie (w „bez terminu”)', () => {
+        store.removeTask(task.id);
+        store.patch('ideas', id, { converted: null });
+      });
+      break;
+    }
+    case 'idea-to-project': {
+      const idea = store.state.ideas.find((x) => x.id === id);
+      const project = store.add('projects', { name: idea.title, desc: idea.note, status: 'aktywny', color: '--info', link: '' });
+      store.patch('ideas', id, { converted: { kind: 'project', id: project.id, at: today() }, pinned: false });
+      location.hash = `#/projekty/${project.id}`;
+      toast('Pomysł → projekt. Dopisz pierwsze zadania.');
+      break;
+    }
+    case 'idea-delete': {
+      const idea = store.state.ideas.find((x) => x.id === id);
+      const undo = store.remove('ideas', id);
+      toast(`Usunięto: ${idea?.title ?? ''}`, undo);
       break;
     }
 
@@ -204,8 +211,6 @@ sync.start();
 view.addEventListener('click', (e) => {
   const fc = e.target.closest('[data-filter-cat]');
   if (fc) { tasksUi.cat = tasksUi.cat === fc.dataset.filterCat ? null : fc.dataset.filterCat; return render({ keepFocus: true }); }
-  const fk = e.target.closest('[data-filter-kind]');
-  if (fk) { libraryUi.kind = libraryUi.kind === fk.dataset.filterKind ? null : fk.dataset.filterKind; return render({ keepFocus: true }); }
   const fp = e.target.closest('[data-filter-project]');
   if (fp) { tasksUi.project = tasksUi.project === fp.dataset.filterProject ? null : fp.dataset.filterProject; return render({ keepFocus: true }); }
 
@@ -237,11 +242,11 @@ view.addEventListener('submit', (e) => {
     input.focus();
   }
 
-  if (kind === 'add-library') {
+  if (kind === 'add-idea') {
     const input = form.querySelector('input');
-    const parsed = parseLibrary(input.value);
-    if (!parsed.title) return;
-    store.add('library', { ...parsed, status: 'kolejka', rating: null, note: '', link: '', startedAt: null, finishedAt: null });
+    const title = input.value.trim();
+    if (!title) return;
+    store.add('ideas', { title, note: '', pinned: false, converted: null });
     input.value = '';
     input.focus();
   }
@@ -271,7 +276,7 @@ sync.start();
 });
 
 /* ---------- Skróty klawiszowe ---------- */
-const JUMPS = { p: '#/', z: '#/zadania', r: '#/projekty', b: '#/biblioteka', d: '#/dziennik', s: '#/styl' };
+const JUMPS = { p: '#/', z: '#/zadania', r: '#/projekty', i: '#/pomysly', d: '#/dziennik', s: '#/styl' };
 let gPressed = 0;
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;

@@ -29,10 +29,10 @@ wysyłają się po powrocie połączenia.
 
 | Adres | Co jest |
 |---|---|
-| `#/` (logo) | **Panel** — podsumowanie: fokus, plan dnia, energia, co teraz czytasz/oglądasz, projekty, terminy |
+| `#/` (logo) | **Panel** — podsumowanie: fokus, plan dnia, energia, pomysły, projekty, terminy |
 | `#/zadania` | lista w stylu bloga, pogrupowana: po terminie / dziś / nadchodzące / bez terminu / zrobione |
 | `#/projekty` | karty w stylu *Projects*; `#/projekty/<id>` — strona projektu z jego zadaniami |
-| `#/biblioteka` | książki, filmy, seriale, kursy: kolejka / w trakcie / skończone, z oceną i jedną myślą |
+| `#/pomysly` | wrzutnia luźnych myśli; każdą jednym kliknięciem zamieniasz w zadanie albo projekt |
 | `#/dziennik` | energia 1–10, nastrój i notatka z każdego dnia + wykres |
 | `#/styl` | ściąga z design systemu (link w stopce) |
 | `#/ustawienia` | połączenie z GitHubem, kopia danych (JSON) |
@@ -48,7 +48,7 @@ wysyłają się po powrocie połączenia.
 | `js/sync.js` | synchronizacja z repo `panel-data` przez GitHub Contents API |
 | `js/merge.js` | scalanie danych z dwóch urządzeń |
 | `js/tasks.js` | parser szybkiego dodawania, filtry i sortowanie zadań |
-| `js/insights.js` | wyliczenia i pomocnicze: postęp projektów, biblioteka, energia |
+| `js/insights.js` | wyliczenia: postęp projektów, energia |
 | `js/components.js` | zadanie (wiersz i wpis jak post), dialogi, wykres energii |
 | `js/views/*.js` | widoki zakładek |
 
@@ -62,10 +62,6 @@ wysyłają się po powrocie połączenia.
 - `+nazwa` — projekt (wystarczy początek nazwy)
 - `^jutro` itd. — zaplanuj na dzień
 
-## Biblioteka — szybkie dodawanie
-
-`Diuna — Frank Herbert` (książka) · `Oppenheimer #film` · `Essence of Linear Algebra — 3Blue1Brown #kurs`
-
 ## Skróty
 
-`n` nowe zadanie · `t` motyw · `g` + `p` Panel / `z` Zadania / `r` Projekty / `b` Biblioteka / `d` Dziennik / `s` Styl
+`n` nowe zadanie · `t` motyw · `g` + `p` Panel / `z` Zadania / `r` Projekty / `i` Pomysły / `d` Dziennik / `s` Styl

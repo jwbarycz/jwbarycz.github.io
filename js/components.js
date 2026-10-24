@@ -4,7 +4,7 @@
 import { config, categoryById } from './config.js';
 import { html, raw, relDate, today, addDays } from './utils.js';
 import { isOverdue, prioMark, displayDate } from './tasks.js';
-import { PROJECT_STATUSES, MOOD_NAMES, LIBRARY_KINDS, LIBRARY_STATUSES } from './insights.js';
+import { PROJECT_STATUSES, MOOD_NAMES } from './insights.js';
 import { store } from './store.js';
 
 const svg = (d) => raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`);
@@ -327,46 +327,19 @@ export function openProjectDialog(id) {
   });
 }
 
-/**
- * Dialog pozycji w bibliotece. defaults.status pozwala otworzyć go od razu jako
- * "skończone" (żeby przy kończeniu dopisać ocenę i myśl).
- */
-export function openLibraryDialog(id, defaults = {}) {
-  const base = id ? store.state.library.find((x) => x.id === id) : { title: '', author: '', kind: 'książka', status: 'kolejka', rating: null, note: '', link: '' };
-  if (!base) return;
-  const x = { ...base, ...defaults };
-
+export function openIdeaDialog(id) {
+  const x = store.state.ideas.find((i) => i.id === id);
+  if (!x) return;
   showDialog(html`
     <form method="dialog">
-      <h2 id="task-dialog-title">${defaults.status === 'skończone' ? `Skończone: ${x.title}` : id ? 'Edytuj' : 'Dodaj do biblioteki'}</h2>
-      <div class="field-row">
-        <label class="field">tytuł
-          <input class="input" name="title" required value="${x.title}">
-        </label>
-        <label class="field">autor / twórca
-          <input class="input" name="author" value="${x.author}">
-        </label>
-      </div>
-      <div class="field-row">
-        <label class="field">rodzaj
-          <select class="input" name="kind">${LIBRARY_KINDS.map((k) => option(k, k, k === x.kind))}</select>
-        </label>
-        <label class="field">status
-          <select class="input" name="status">${LIBRARY_STATUSES.map((st) => option(st.id, st.id, st.id === x.status))}</select>
-        </label>
-        <label class="field">ocena
-          <select class="input" name="rating">
-            ${option('', '— brak', !x.rating)}
-            ${[5, 4, 3, 2, 1].map((n) => option(n, '★'.repeat(n) + '☆'.repeat(5 - n), n === x.rating))}
-          </select>
-        </label>
-      </div>
-      <label class="field">jedna myśl — co zostało w głowie
-        <textarea class="input" name="note" rows="3">${x.note || ''}</textarea>
+      <h2 id="task-dialog-title">Pomysł</h2>
+      <label class="field">w jednym zdaniu
+        <input class="input" name="title" required value="${x.title}">
       </label>
-      <label class="field">link (opcjonalnie)
-        <input class="input" name="link" type="url" placeholder="https://" value="${x.link || ''}">
+      <label class="field">rozwinięcie — dlaczego, jak, co dalej
+        <textarea class="input" name="note" rows="5">${x.note || ''}</textarea>
       </label>
+      <label class="check-label"><input type="checkbox" class="check" name="pinned" ${x.pinned ? raw('checked') : ''}> przypnij na górę</label>
       <div class="dialog-actions">
         <div></div>
         <div>
@@ -376,27 +349,8 @@ export function openLibraryDialog(id, defaults = {}) {
       </div>
     </form>`,
   (f) => {
-    const data = {
-      title: String(f.get('title')).trim(),
-      author: String(f.get('author')).trim(),
-      kind: f.get('kind'),
-      status: f.get('status'),
-      rating: f.get('rating') ? Number(f.get('rating')) : null,
-      note: String(f.get('note')).trim(),
-      link: String(f.get('link')).trim(),
-    };
-    if (!data.title) return;
-    Object.assign(data, libraryDates(base, data.status));
-    if (id) store.patch('library', id, data);
-    else store.add('library', data);
+    const title = String(f.get('title')).trim();
+    if (!title) return;
+    store.patch('ideas', id, { title, note: String(f.get('note')).trim(), pinned: f.get('pinned') === 'on' });
   });
-}
-
-/** Daty rozpoczęcia/zakończenia uzupełniane przy zmianie statusu. */
-export function libraryDates(item, status) {
-  const out = {};
-  if (status === 'w trakcie') { out.startedAt = item.startedAt || today(); out.finishedAt = null; }
-  if (status === 'skończone' || status === 'porzucone') { out.startedAt = item.startedAt || null; out.finishedAt = item.status === status && item.finishedAt ? item.finishedAt : today(); }
-  if (status === 'kolejka') { out.startedAt = null; out.finishedAt = null; }
-  return out;
 }

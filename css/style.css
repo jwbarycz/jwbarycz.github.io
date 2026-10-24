@@ -717,12 +717,9 @@ h3.card-title::before { content: "# "; }
 .project-head { margin-top: 1.75rem; }
 .stat .value.small { font-size: 1.15rem; padding-top: 0.45rem; }
 
-/* ---------- Biblioteka ---------- */
-.lib-byline { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.6rem; margin-top: 0.25rem; }
-.lib-byline .author { font-family: var(--paragraph-font); font-style: italic; color: var(--text-1); }
-.stars { color: var(--primary-color); letter-spacing: 1px; font-size: 0.85rem; }
-.list-item.dropped .post-title .title-text { color: var(--text-1); }
-.chips-filter .chip:not([style]) { --cat: var(--primary-color); }
+/* ---------- Pomysły ---------- */
+.list-item.converted .post-title .title-text { color: var(--text-1); }
+.converted-to { font-family: var(--paragraph-font); font-size: 0.9rem; color: var(--text-1); display: inline-flex; gap: 0.4rem; align-items: baseline; flex-wrap: wrap; }
 .mini-foot { font-size: 0.72rem; color: var(--text-1); margin: 0.5rem 0 0; }
 
 /* ---------- Check-in: energia i nastrój ---------- */
