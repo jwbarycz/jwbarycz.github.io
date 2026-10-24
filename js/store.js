@@ -1,12 +1,16 @@
-// Stan aplikacji + zapis.
-// Faza 1: zapis tylko w localStorage. W fazie 2 dojdzie adapter GitHub
-// (ten sam interfejs load/save), a localStorage zostanie jako cache offline.
+// Stan aplikacji + zapis lokalny (localStorage).
+// Synchronizacja z GitHubem siedzi w sync.js — subskrybuje zmiany stąd
+// i podmienia stan po scaleniu (replace).
+//
+// Każdy element i dzień ma `updatedAt`, a usunięte id trafiają do `deleted`
+// (id → czas usunięcia). Dzięki temu dwa urządzenia da się scalić bez utraty zmian.
 //
 // Kształt danych:
 //   tasks:    [{ id, title, cat, project, prio, due, plan, note, done, doneAt, createdAt }]
 //   projects: [{ id, name, desc, status, color, link, createdAt }]
 //   library:  [{ id, title, author, kind, status, rating, note, link, startedAt, finishedAt, createdAt }]
-//   days:     { 'YYYY-MM-DD': { focus, energy, mood, note } }
+//   days:     { 'YYYY-MM-DD': { focus, energy, mood, note, updatedAt } }
+//   deleted:  { id: ISO }
 
 import { today, uid, addDays } from './utils.js';
 
@@ -32,7 +36,7 @@ const localAdapter = {
   },
 };
 
-const emptyState = () => ({ version: 3, tasks: [], projects: [], library: [], days: {} });
+const emptyState = () => ({ version: 4, tasks: [], projects: [], library: [], days: {}, deleted: {} });
 
 /* ---------- Przykładowe dane (oznaczone seed: true, do usunięcia jednym kliknięciem) ---------- */
 
@@ -123,32 +127,59 @@ function migrate(s) {
   s.library ||= [];
   s.days ||= {};
   for (const t of s.tasks) if (!('project' in t)) t.project = null;
+  s.deleted ||= {};
   if ((s.version || 1) < 3) {
     // v3: nawyki zastąpione biblioteką. Przykładowe dane generujemy od nowa.
     delete s.habits;
     for (const d of Object.values(s.days)) delete d.habits;
     if (s.tasks.some((t) => t.seed)) return seedState();
-    s.version = 3;
   }
+  s.version = 4;
   return s;
 }
 
+const PRISTINE_KEY = 'panel:pristine';
+const nowIso = () => new Date().toISOString();
+
 let adapter = localAdapter;
-let state = migrate(adapter.load());
+const loaded = adapter.load();
+let state = migrate(loaded);
+// "Dziewicze" dane = same przykłady, niczego jeszcze nie zmieniono. Takie dane przy pierwszym
+// połączeniu z GitHubem zastępujemy zdalnymi zamiast je scalać (żeby przykłady nie trafiły do repo).
+const onlySeed = (s) => [s.tasks, s.projects, s.library].every((list) => list.every((x) => x.seed));
+if (!loaded || (loaded.version || 1) < 3 || onlySeed(state)) setPristine(true);
 adapter.save(state);
 const listeners = new Set();
 
+function setPristine(v) {
+  try { v ? localStorage.setItem(PRISTINE_KEY, '1') : localStorage.removeItem(PRISTINE_KEY); } catch {}
+}
+
 export const store = {
   get state() { return state; },
-  get backend() { return adapter.kind; },
 
+  get pristine() {
+    try { return localStorage.getItem(PRISTINE_KEY) === '1'; } catch { return false; }
+  },
+
+  /** fn(state, { remote }) — remote: true, gdy zmiana przyszła z synchronizacji. */
   subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
 
-  /** Każda zmiana przechodzi tędy: mutacja -> zapis -> powiadomienie widoków. */
+  /** Każda lokalna zmiana przechodzi tędy: mutacja -> zapis -> powiadomienie widoków i synchronizacji. */
   update(mutator) {
     mutator(state);
+    setPristine(false);
     adapter.save(state);
-    listeners.forEach((fn) => fn(state));
+    listeners.forEach((fn) => fn(state, { remote: false }));
+  },
+
+  clearPristine() { setPristine(false); },
+
+  /** Podmiana całego stanu (po scaleniu z GitHubem). */
+  replace(next) {
+    state = migrate(next);
+    adapter.save(state);
+    listeners.forEach((fn) => fn(state, { remote: true }));
   },
 
   /* ---------- Zadania ---------- */
@@ -156,9 +187,10 @@ export const store = {
   task(id) { return state.tasks.find((t) => t.id === id); },
 
   addTask(partial) {
+    const now = nowIso();
     const task = {
       id: uid(), title: '', cat: 'inbox', project: null, prio: 0, due: null, plan: null, note: '',
-      done: false, doneAt: null, createdAt: new Date().toISOString(), ...partial,
+      done: false, doneAt: null, createdAt: now, updatedAt: now, ...partial,
     };
     this.update((s) => { s.tasks.unshift(task); });
     return task;
@@ -179,15 +211,18 @@ export const store = {
   project(id) { return state.projects.find((p) => p.id === id); },
 
   add(coll, obj) {
-    const item = { id: uid(), createdAt: new Date().toISOString(), ...obj };
+    const now = nowIso();
+    const item = { id: uid(), createdAt: now, ...obj, updatedAt: now };
     this.update((s) => { s[coll].push(item); });
     return item;
   },
 
-  patch(coll, id, patch) {
+  patch(coll, id, patch) { this.patchWhere(coll, (x) => x.id === id, patch); },
+
+  patchWhere(coll, pred, patch) {
+    const now = nowIso();
     this.update((s) => {
-      const x = s[coll].find((i) => i.id === id);
-      if (x) Object.assign(x, patch);
+      for (const x of s[coll]) if (pred(x)) Object.assign(x, patch, { updatedAt: now });
     });
   },
 
@@ -196,8 +231,14 @@ export const store = {
     const idx = state[coll].findIndex((x) => x.id === id);
     if (idx < 0) return () => {};
     const removed = state[coll][idx];
-    this.update((s) => { s[coll].splice(idx, 1); });
-    return () => this.update((s) => { s[coll].splice(Math.min(idx, s[coll].length), 0, removed); });
+    this.update((s) => {
+      s[coll].splice(idx, 1);
+      s.deleted[id] = nowIso();
+    });
+    return () => this.update((s) => {
+      delete s.deleted[id];
+      s[coll].splice(Math.min(idx, s[coll].length), 0, { ...removed, updatedAt: nowIso() });
+    });
   },
 
   /* ---------- Dni: fokus i dziennik ---------- */
@@ -205,7 +246,7 @@ export const store = {
   day(date = today()) { return state.days[date] || {}; },
 
   patchDay(date, patch) {
-    this.update((s) => { s.days[date] = { ...(s.days[date] || {}), ...patch }; });
+    this.update((s) => { s.days[date] = { ...(s.days[date] || {}), ...patch, updatedAt: nowIso() }; });
   },
 
   setFocus(id, date = today()) { this.patchDay(date, { focus: id }); },
@@ -217,24 +258,21 @@ export const store = {
   },
 
   clearSeed() {
+    const now = nowIso();
     this.update((s) => {
-      const taskIds = new Set(s.tasks.filter((t) => t.seed).map((t) => t.id));
-      const projIds = new Set(s.projects.filter((p) => p.seed).map((p) => p.id));
+      const seedIds = [s.tasks, s.projects, s.library].flatMap((list) => list.filter((x) => x.seed).map((x) => x.id));
+      const ids = new Set(seedIds);
+      for (const id of seedIds) s.deleted[id] = now;
       s.tasks = s.tasks.filter((t) => !t.seed);
       s.projects = s.projects.filter((p) => !p.seed);
       s.library = s.library.filter((x) => !x.seed);
-      for (const t of s.tasks) if (projIds.has(t.project)) t.project = null;
-      for (const [date, d] of Object.entries(s.days)) {
-        if (taskIds.has(d.focus)) delete d.focus;
+      for (const t of s.tasks) if (ids.has(t.project)) Object.assign(t, { project: null, updatedAt: now });
+      for (const d of Object.values(s.days)) {
+        const touched = ids.has(d.focus) || d.seed;
+        if (ids.has(d.focus)) delete d.focus;
         if (d.seed) { delete d.energy; delete d.mood; delete d.note; delete d.seed; }
-        if (!Object.values(d).some((v) => v != null)) delete s.days[date];
+        if (touched) d.updatedAt = now;
       }
     });
-  },
-
-  reset() {
-    state = emptyState();
-    adapter.save(state);
-    listeners.forEach((fn) => fn(state));
   },
 };

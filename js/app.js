@@ -12,6 +12,8 @@ import { renderProjects, renderProject } from './views/projects.js';
 import { renderLibrary, ui as libraryUi } from './views/library.js';
 import { renderJournal, ui as journalUi } from './views/journal.js';
 import { renderStyle } from './views/style.js';
+import { renderSettings, ui as settingsUi } from './views/settings.js';
+import { sync } from './sync.js';
 
 const routes = {
   '': { id: 'panel', title: 'Panel', render: renderHome },
@@ -20,6 +22,7 @@ const routes = {
   biblioteka: { id: 'biblioteka', title: 'Biblioteka', render: renderLibrary },
   dziennik: { id: 'dziennik', title: 'Dziennik', render: renderJournal },
   styl: { id: 'styl', title: 'Styl', render: renderStyle },
+  ustawienia: { id: 'ustawienia', title: 'Ustawienia', render: renderSettings },
 };
 
 const view = document.getElementById('view');
@@ -112,12 +115,12 @@ function handleAction(action, el) {
       const p = store.project(id);
       if (!p || !confirm(`Usunąć projekt „${p.name}”? Zadania zostaną, tylko bez projektu.`)) break;
       const linked = store.state.tasks.filter((x) => x.project === id).map((x) => x.id);
-      store.update((s) => { for (const x of s.tasks) if (x.project === id) x.project = null; });
+      store.patchWhere('tasks', (x) => x.project === id, { project: null });
       const undo = store.remove('projects', id);
       location.hash = '#/projekty';
       toast(`Usunięto projekt: ${p.name}`, () => {
         undo();
-        store.update((s) => { for (const x of s.tasks) if (linked.includes(x.id)) x.project = id; });
+        store.patchWhere('tasks', (x) => linked.includes(x.id), { project: id });
       });
       break;
     }
@@ -160,12 +163,36 @@ function handleAction(action, el) {
     case 'journal-edit':
       journalUi.date = el.dataset.date;
       render();
+updateBadge(sync.status);
+sync.start();
       window.scrollTo({ top: 0, behavior: 'smooth' });
       break;
     case 'journal-today':
       journalUi.date = null;
       render();
+updateBadge(sync.status);
+sync.start();
       break;
+
+    /* synchronizacja */
+    case 'sync-now':
+      sync.now().then(() => toast(sync.status.state === 'ok' ? 'Zsynchronizowano' : sync.status.message));
+      break;
+    case 'sync-disconnect':
+      if (confirm('Odłączyć to urządzenie od GitHuba? Dane zostaną w tej przeglądarce, ale przestaną się synchronizować.')) {
+        sync.disconnect();
+        render();
+updateBadge(sync.status);
+sync.start();
+      }
+      break;
+    case 'export-data': {
+      const blob = new Blob([JSON.stringify(store.state, null, 2)], { type: 'application/json' });
+      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `panel-${today()}.json` });
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      break;
+    }
 
     case 'clear-seed':
       store.clearSeed();
@@ -219,6 +246,24 @@ view.addEventListener('submit', (e) => {
     input.focus();
   }
 
+  if (kind === 'connect-sync') {
+    const token = form.token.value;
+    if (!token.trim()) return;
+    settingsUi.connecting = true;
+    settingsUi.error = '';
+    render();
+updateBadge(sync.status);
+sync.start();
+    sync.connect(token).then((res) => {
+      settingsUi.connecting = false;
+      settingsUi.error = res.ok ? '' : res.message;
+      render();
+updateBadge(sync.status);
+sync.start();
+      if (res.ok) toast('Połączono z GitHubem ✓');
+    });
+  }
+
   if (kind === 'journal-note') {
     store.patchDay(form.dataset.date, { note: form.note.value.trim() });
     toast('Notatka zapisana');
@@ -252,7 +297,29 @@ document.addEventListener('keydown', (e) => {
 document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 document.getElementById('logo').textContent = config.name;
 document.getElementById('footer-left').innerHTML =
-  `${config.name} · dane: ${store.backend === 'local' ? 'ta przeglądarka' : 'GitHub'} · <a href="#/styl">styl</a>`;
+  `${config.name} · <a href="#/ustawienia">ustawienia</a> · <a href="#/styl">styl</a>`;
+
+/* ---------- Plakietka synchronizacji przy logo ---------- */
+const BADGE = {
+  local: ['lokalnie', 'Dane tylko w tej przeglądarce — kliknij, żeby połączyć z GitHubem'],
+  pending: ['zapisuję', 'Zmiany czekają na wysłanie'],
+  syncing: ['sync…', 'Synchronizuję z GitHubem'],
+  ok: ['github', 'Zsynchronizowano z GitHubem'],
+  offline: ['offline', 'Brak internetu — wyślę zmiany później'],
+  error: ['błąd', 'Błąd synchronizacji — kliknij po szczegóły'],
+};
+function updateBadge(st) {
+  const el = document.getElementById('sync-badge');
+  const [text, title] = BADGE[st.state] || BADGE.local;
+  el.dataset.state = st.state;
+  el.querySelector('.txt').textContent = text;
+  el.title = st.message || title;
+}
+sync.onStatus((st) => {
+  updateBadge(st);
+  // Odśwież ustawienia, ale nie w trakcie wpisywania tokenu
+  if (currentRoute().route.id === 'ustawienia' && !document.activeElement?.closest('#view input')) render({ keepFocus: true });
+});
 
 store.subscribe(() => render({ keepFocus: true }));
 window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
@@ -264,3 +331,5 @@ setInterval(() => {
 }, 60_000);
 
 render();
+updateBadge(sync.status);
+sync.start();

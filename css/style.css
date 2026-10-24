@@ -200,9 +200,20 @@ nav.top .right-nav a { font-size: 0.95rem; }
   white-space: nowrap;
 }
 .sync-badge .led { width: 7px; height: 7px; border-radius: 50%; background: var(--text-2); }
-.sync-badge[data-state="ok"] .led { background: var(--success); }
-.sync-badge[data-state="local"] .led { background: var(--warning); }
-.sync-badge[data-state="error"] .led { background: var(--primary-color); }
+a.sync-badge { border-bottom: 1px solid var(--border-color); }
+a.sync-badge:hover { background: transparent; color: var(--text-0); border-color: var(--border-strong); }
+:is(.sync-badge, .sync-status)[data-state="ok"] .led { background: var(--success); }
+:is(.sync-badge, .sync-status)[data-state="local"] .led,
+:is(.sync-badge, .sync-status)[data-state="pending"] .led { background: var(--warning); }
+:is(.sync-badge, .sync-status)[data-state="syncing"] .led { background: var(--info); animation: pulse 1s ease-in-out infinite; }
+:is(.sync-badge, .sync-status)[data-state="error"] .led { background: var(--primary-color); }
+@keyframes pulse { 50% { opacity: 0.3; } }
+
+.sync-status { display: flex; align-items: center; gap: 0.55rem; font-size: 0.85rem; }
+.sync-status .led { width: 9px; height: 9px; border-radius: 50%; background: var(--text-2); }
+.steps { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+.form-error { color: var(--primary-color); font-size: 0.8rem; margin: 0.5rem 0 0; }
+.prompt .btn { flex: none; }
 
 .icon-btn {
   appearance: none;
