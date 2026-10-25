@@ -2,9 +2,9 @@
 
 import { config } from './config.js';
 import { store } from './store.js';
-import { today, addDays } from './utils.js';
+import { html, today, addDays } from './utils.js';
 import { parseQuick } from './tasks.js';
-import { openTaskDialog, openProjectDialog, openIdeaDialog, toast } from './components.js';
+import { openTaskDialog, openProjectDialog, openIdeaDialog, toast, toggleNote } from './components.js';
 import { renderHome } from './views/home.js';
 import { renderTasks, ui as tasksUi } from './views/tasks.js';
 import { renderProjects, renderProject } from './views/projects.js';
@@ -13,6 +13,7 @@ import { renderJournal, ui as journalUi } from './views/journal.js';
 import { renderStyle } from './views/style.js';
 import { renderSettings, ui as settingsUi } from './views/settings.js';
 import { sync } from './sync.js';
+import { initSearch } from './search.js';
 
 const routes = {
   '': { id: 'panel', title: 'Panel', render: renderHome },
@@ -26,10 +27,21 @@ const routes = {
 
 const view = document.getElementById('view');
 
+const notFound = {
+  id: '404',
+  title: '404',
+  render: () => html`
+    <main class="centered-header">
+      <div class="page-header">404<span class="dot">.</span></div>
+      <span>Nie ma takiej strony :(</span>
+      <span><a href="#/">wróć do panelu</a></span>
+    </main>`,
+};
+
 /** '#/projekty/abc' → { route: routes.projekty, param: 'abc' } */
 function currentRoute() {
   const [name = '', param] = location.hash.replace(/^#\/?/, '').split('/');
-  return { route: routes[name] || routes[''], param };
+  return { route: name in routes ? routes[name] : notFound, param };
 }
 
 function render({ keepFocus = false } = {}) {
@@ -52,11 +64,20 @@ function render({ keepFocus = false } = {}) {
 }
 
 /* ---------- Theme ---------- */
-function setTheme(theme) {
+const THEME_COLORS = { light: '#FFFFFF', dark: '#0E1018' };
+
+/** Applies a theme without storing it (used on start and on every toggle). */
+function applyTheme(theme) {
   const root = document.documentElement;
-  root.classList.remove('light', 'dark');
-  root.classList.add(theme);
-  document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#0e1018' : '#ffffff';
+  root.classList.toggle('dark', theme === 'dark');
+  root.classList.toggle('light', theme === 'light');
+  // Both media-specific metas follow the chosen theme, not the OS one
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.content = THEME_COLORS[theme]; });
+  document.getElementById('theme-toggle').setAttribute('aria-pressed', String(theme === 'dark'));
+}
+
+function setTheme(theme) {
+  applyTheme(theme);
   try { localStorage.setItem('panel:theme', theme); } catch {}
 }
 const toggleTheme = () => setTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
@@ -201,6 +222,11 @@ sync.start();
       break;
     }
 
+    case 'note-toggle':
+      toggleNote(el.dataset.note);
+      render({ keepFocus: true });
+      break;
+
     case 'clear-seed':
       store.clearSeed();
       toast('Przykładowe dane usunięte');
@@ -300,6 +326,8 @@ document.addEventListener('keydown', (e) => {
 
 /* ---------- Start ---------- */
 document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+applyTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+initSearch();
 document.getElementById('logo').textContent = config.name;
 document.getElementById('footer-left').innerHTML =
   `${config.name} · <a href="#/ustawienia">ustawienia</a> · <a href="#/styl">styl</a>`;

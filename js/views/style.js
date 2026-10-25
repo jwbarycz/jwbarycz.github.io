@@ -2,7 +2,7 @@
 
 import { config } from '../config.js';
 import { html, today, addDays } from '../utils.js';
-import { taskList, postTaskList, sparkline } from '../components.js';
+import { taskList, postTaskList, sparkline, callout } from '../components.js';
 
 const swatch = (name, token, note = '') =>
   html`<div class="swatch"><div class="c" style="--c: var(${token})"></div><div class="t"><b>${name}</b>${token}${note ? html`<br>${note}` : ''}</div></div>`;
@@ -72,11 +72,9 @@ export function renderStyle() {
     </div>
 
     <h2>Callouty</h2>
-    ${['info', 'success', 'warning', 'tip', 'danger'].map((k) => html`
-      <div class="note ${k}">
-        <div class="note-head">${k}</div>
-        <div class="note-body"><p>Ramka w stylu <code>note</code> z bloga — do podpowiedzi, ostrzeżeń i podsumowań.</p></div>
-      </div>`)}
+    ${['info', 'success', 'warning', 'tip', 'danger'].map((k) =>
+      callout(k, k, html`<p>Ramka do podpowiedzi, ostrzeżeń i podsumowań.</p>`))}
+    ${callout('info', 'Zwijana ramka (kliknij nagłówek)', html`<p>Stan zwinięcia zapamiętuje się w tej przeglądarce.</p>`, { id: 'style-demo' })}
 
     <h2>Karty, statystyki, postęp</h2>
     <div class="grid">

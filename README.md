@@ -40,10 +40,12 @@ How it works: changes are saved in the browser immediately and pushed to the rep
 |---|---|
 | `index.html` | page skeleton, navigation, fonts |
 | `css/style.css` | design system: color tokens, typography, components |
+| `css/fonts.css`, `fonts/` | self-hosted fonts (no external requests) |
 | `js/config.js` | **settings** — name, categories, day hours, data repo |
 | `js/store.js` | app state and browser persistence (localStorage) |
 | `js/sync.js` | sync with the `panel-data` repo via the GitHub Contents API |
 | `js/merge.js` | merging data from two devices |
+| `js/search.js` | search modal (⌘K / Ctrl+K) over tasks, projects, ideas and journal notes |
 | `js/tasks.js` | quick-add parser, task filters and sorting |
 | `js/insights.js` | derived data: project progress, energy |
 | `js/components.js` | task row and blog-style entry, dialogs, energy chart |
@@ -61,4 +63,8 @@ How it works: changes are saved in the browser immediately and pushed to the rep
 
 ## Shortcuts
 
-`n` new task · `t` theme · `g` + `p` Panel / `z` Tasks / `r` Projects / `i` Ideas / `d` Journal / `s` Style
+`n` new task · `⌘K` / `Ctrl+K` search · `t` theme · `g` + `p` Panel / `z` Tasks / `r` Projects / `i` Ideas / `d` Journal / `s` Style
+
+## Licenses
+
+Third-party code and fonts are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

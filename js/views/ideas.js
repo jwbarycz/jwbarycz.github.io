@@ -3,7 +3,7 @@
 
 import { store } from '../store.js';
 import { html } from '../utils.js';
-import { icons } from '../components.js';
+import { icons, draftLabel } from '../components.js';
 
 const day = (x) => x.createdAt.slice(0, 10);
 const newestFirst = (a, b) => b.createdAt.localeCompare(a.createdAt);
@@ -24,7 +24,7 @@ function ideaItem(x) {
       <div class="post-header">
         <time datetime="${day(x)}">${day(x)}</time>
         <div class="post-body">
-          <h3 class="post-title ${x.pinned ? 'is-focus' : ''}"><span class="title-text" data-action="idea-edit">${x.title}</span></h3>
+          <h3 class="post-title ${x.pinned ? 'is-focus' : ''}"><span class="title-text" data-action="idea-edit">${x.title}</span>${draftLabel(x)}</h3>
           ${x.note ? html`<div class="description">${x.note}</div>` : ''}
           <div class="post-links">
             ${x.converted

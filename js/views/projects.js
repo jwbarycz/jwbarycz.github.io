@@ -4,7 +4,7 @@ import { store } from '../store.js';
 import { html, relDate } from '../utils.js';
 import { sortTasks, sortDone } from '../tasks.js';
 import { projectStats, PROJECT_STATUSES } from '../insights.js';
-import { postTaskList, quickAdd } from '../components.js';
+import { postTaskList, quickAdd, draftLabel } from '../components.js';
 
 /** Instead of an image: a colored panel with progress and a task grid (filled = done). */
 function projectMedia(p, s) {
@@ -29,7 +29,7 @@ function projectCard(p) {
     <div class="card pcard">
       ${projectMedia(p, s)}
       <div class="card-info">
-        <h3 class="card-title"><a href="#/projekty/${p.id}">${p.name}</a></h3>
+        <h3 class="card-title"><a href="#/projekty/${p.id}">${p.name}</a>${draftLabel(p)}</h3>
         <div class="meta">
           <time datetime="${p.createdAt.slice(0, 10)}">${p.createdAt.slice(0, 10)}</time>
           · ${s.done}/${s.total} zadań${s.nextDue ? html` · termin ${relDate(s.nextDue)}` : ''}

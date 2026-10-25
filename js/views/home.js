@@ -5,7 +5,7 @@ import { store } from '../store.js';
 import { html, longDate, isoWeek, today, pad, plural, relDate, addDays } from '../utils.js';
 import { isForToday, isOverdue, sortTasks, groupByCategory, prioMark } from '../tasks.js';
 import { projectStats, energySeries, avg } from '../insights.js';
-import { taskList, quickAdd, icons, checkin, sparkline, projectChip } from '../components.js';
+import { taskList, quickAdd, icons, checkin, sparkline, projectChip, callout } from '../components.js';
 
 function dayProgress() {
   const now = new Date();
@@ -126,11 +126,8 @@ export function renderHome() {
       <span class="tabular">${time} · ${dayPct}% dnia</span>
     </div>
 
-    ${store.hasSeed() ? html`
-      <div class="note tip">
-        <div class="note-head">Przykładowe dane</div>
-        <div class="note-body"><p>Zadania, projekty, pomysły i wpisy w dzienniku są przykładowe, żeby było widać, jak panel wygląda. <button class="link-btn" data-action="clear-seed">Usuń je</button>, kiedy zaczniesz dodawać własne.</p></div>
-      </div>` : ''}
+    ${store.hasSeed() ? callout('tip', 'Przykładowe dane',
+      html`<p>Zadania, projekty, pomysły i wpisy w dzienniku są przykładowe, żeby było widać, jak panel wygląda. <button class="link-btn" data-action="clear-seed">Usuń je</button>, kiedy zaczniesz dodawać własne.</p>`) : ''}
 
     <div class="stat-row stats-top">
       <div class="stat">
@@ -159,11 +156,8 @@ export function renderHome() {
         <h2 class="list-section">Fokus</h2>
         ${focusCard(todays)}
 
-        ${overdue.length ? html`
-          <div class="note danger">
-            <div class="note-head">Po terminie (${overdue.length})</div>
-            <div class="note-body">${taskList(sortTasks(overdue), { context: 'today', showCat: true, showProject: true })}</div>
-          </div>` : ''}
+        ${overdue.length ? callout('danger', `Po terminie (${overdue.length})`,
+          taskList(sortTasks(overdue), { context: 'today', showCat: true, showProject: true }), { id: 'home-overdue' }) : ''}
 
         <h2 class="list-section">Plan dnia <span class="count">${total - done} ${plural(total - done, 'zostało', 'zostały', 'zostało')}</span></h2>
         <div class="grid two">

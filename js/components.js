@@ -17,6 +17,9 @@ export const icons = {
   trash: svg('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
 };
 
+/** Small red tag on sample items, like a blog's DRAFT label. */
+export const draftLabel = (x) => (x.seed ? html`<span class="draft-label">PRZYKŁAD</span>` : '');
+
 export const catChip = (cat) =>
   html`<span class="chip" style="--cat: var(${cat.color})"><span class="sw"></span>${cat.name.toLowerCase()}</span>`;
 
@@ -101,7 +104,7 @@ export function postTask(t, opts = {}) {
         <time class="${isOverdue(t) ? 'overdue' : ''}" datetime="${date || ''}">${date || '—'}</time>
         <div class="post-body">
           <h3 class="post-title ${focusId === t.id && !t.done ? 'is-focus' : ''}">
-            <span class="title-text" data-action="edit">${t.title}</span>${t.prio ? html` <span class="prio">${prioMark(t.prio)}</span>` : ''}
+            <span class="title-text" data-action="edit">${t.title}</span>${t.prio ? html` <span class="prio">${prioMark(t.prio)}</span>` : ''}${draftLabel(t)}
           </h3>
           ${t.note ? html`<div class="description">${t.note}</div>` : ''}
           <div class="meta">${raw(metaBits)}</div>
@@ -173,6 +176,37 @@ export function checkin(date = today()) {
             html`<button class="scale-btn ${d.mood === n ? 'on' : ''}" data-action="mood" data-value="${n}" aria-pressed="${String(d.mood === n)}">${MOOD_NAMES[n]}</button>`)}
         </div>
       </div>
+    </div>`;
+}
+
+/* ---------- Callouts ---------- */
+
+const NOTES_KEY = 'panel:notes';
+
+function collapsedNotes() {
+  try { return JSON.parse(localStorage.getItem(NOTES_KEY)) || {}; } catch { return {}; }
+}
+
+/** Remembers whether a collapsible callout is folded (per id, in this browser only). */
+export function toggleNote(id) {
+  const state = collapsedNotes();
+  state[id] = !state[id];
+  try { localStorage.setItem(NOTES_KEY, JSON.stringify(state)); } catch {}
+}
+
+/**
+ * Callout box. type: info | warning | success | danger | tip.
+ * With opts.id it becomes collapsible and remembers its state.
+ */
+export function callout(type, title, body, opts = {}) {
+  const collapsed = opts.id ? !!collapsedNotes()[opts.id] : false;
+  const head = opts.id
+    ? html`<button type="button" class="note-head" data-action="note-toggle" data-note="${opts.id}" aria-expanded="${String(!collapsed)}">${title}</button>`
+    : html`<div class="note-head">${title}</div>`;
+  return html`
+    <div class="note ${type}">
+      ${head}
+      <div class="note-body" ${collapsed ? raw('hidden') : ''}>${body}</div>
     </div>`;
 }
 
