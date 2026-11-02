@@ -2,10 +2,11 @@
 // edit dialogs, toast, energy chart.
 
 import { config, categoryById } from './config.js';
-import { html, raw, relDate, today, addDays } from './utils.js';
+import { html, raw, relDate, today, addDays, uid } from './utils.js';
 import { isOverdue, prioMark, displayDate } from './tasks.js';
 import { PROJECT_STATUSES, MOOD_NAMES } from './insights.js';
 import { store } from './store.js';
+import { kindById, prepDays } from './study.js';
 
 const svg = (d) => raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`);
 
@@ -386,5 +387,159 @@ export function openIdeaDialog(id) {
     const title = String(f.get('title')).trim();
     if (!title) return;
     store.patch('ideas', id, { title, note: String(f.get('note')).trim(), pinned: f.get('pinned') === 'on' });
+  });
+}
+
+/* ---------- Study: subject and deadline dialogs ---------- */
+
+export function openSubjectDialog(id) {
+  const x = id ? store.state.subjects.find((v) => v.id === id) : { name: '', form: 'E', ects: '', lecturer: '', color: '--info', link: '', note: '' };
+  if (!x) return;
+  showDialog(html`
+    <form method="dialog">
+      <h2 id="task-dialog-title">${id ? 'Edytuj przedmiot' : 'Nowy przedmiot'}</h2>
+      <label class="field">nazwa
+        <input class="input" name="name" required value="${x.name}" placeholder="np. Mikroekonomia">
+      </label>
+      <div class="field-row">
+        <label class="field">forma zaliczenia
+          <select class="input" name="form">${[['E', 'egzamin (E)'], ['Z', 'zaliczenie (Z)']].map(([v, l]) => option(v, l, v === x.form))}</select>
+        </label>
+        <label class="field">ECTS
+          <input class="input" name="ects" type="number" min="0" max="30" value="${x.ects ?? ''}">
+        </label>
+        <label class="field">kolor
+          <select class="input" name="color">${PROJECT_COLORS.map(([v, l]) => option(v, l, v === x.color))}</select>
+        </label>
+      </div>
+      <label class="field">prowadzący
+        <input class="input" name="lecturer" value="${x.lecturer || ''}">
+      </label>
+      <label class="field">link (eKursy, Teams, sylabus — opcjonalnie)
+        <input class="input" name="link" type="url" placeholder="https://" value="${x.link || ''}">
+      </label>
+      <label class="field">notatka (zasady zaliczenia, progi, obecności…)
+        <textarea class="input" name="note" rows="3">${x.note || ''}</textarea>
+      </label>
+      <div class="dialog-actions">
+        <div></div>
+        <div>
+          <button class="btn" value="cancel" formnovalidate>Anuluj</button>
+          <button class="btn primary" value="save">Zapisz</button>
+        </div>
+      </div>
+    </form>`,
+  (f) => {
+    const data = {
+      name: String(f.get('name')).trim(),
+      form: f.get('form'),
+      ects: f.get('ects') ? Number(f.get('ects')) : null,
+      color: f.get('color'),
+      lecturer: String(f.get('lecturer')).trim(),
+      link: String(f.get('link')).trim(),
+      note: String(f.get('note')).trim(),
+    };
+    if (!data.name) return;
+    if (id) store.patch('subjects', id, data);
+    else store.add('subjects', data);
+  });
+}
+
+/** Turns the "one topic per line" textarea back into a checklist, keeping ticks of unchanged lines. */
+function scopeFromText(text, previous = []) {
+  const done = new Map(previous.map((t) => [t.text.trim(), t]));
+  return text.split('\n').map((l) => l.trim()).filter(Boolean)
+    .map((line) => done.get(line) || { id: uid(), text: line, done: false });
+}
+
+export function openStudyDialog(id, defaults = {}) {
+  const base = id ? store.state.study.find((v) => v.id === id)
+    : { subject: '', kind: 'zadanie', title: '', date: '', time: '', place: '', weight: 2, prepDays: null, scope: [], done: false, grade: '', note: '', ...defaults };
+  if (!base) return;
+  const x = base;
+  const autoPrep = prepDays({ ...x, prepDays: null });
+
+  showDialog(html`
+    <form method="dialog">
+      <h2 id="task-dialog-title">${id ? 'Edytuj termin' : 'Nowy termin'}</h2>
+      <div class="field-row">
+        <label class="field">przedmiot
+          <select class="input" name="subject">
+            ${option('', '— bez przedmiotu', !x.subject)}
+            ${store.state.subjects.map((s) => option(s.id, s.name, s.id === x.subject))}
+          </select>
+        </label>
+        <label class="field">rodzaj
+          <select class="input" name="kind">${config.study.kinds.map((k) => option(k.id, k.name, k.id === x.kind))}</select>
+        </label>
+      </div>
+      <label class="field">tytuł (opcjonalnie, np. „Kolokwium 2” albo temat projektu)
+        <input class="input" name="title" value="${x.title}">
+      </label>
+      <div class="field-row">
+        <label class="field">data
+          <input class="input" type="date" name="date" value="${x.date || ''}">
+        </label>
+        <label class="field">godzina
+          <input class="input" type="time" name="time" value="${x.time || ''}">
+        </label>
+        <label class="field">sala / miejsce
+          <input class="input" name="place" value="${x.place || ''}" placeholder="np. bud. Z, s. 104">
+        </label>
+      </div>
+      <div class="field-row">
+        <label class="field">waga
+          <select class="input" name="weight">${[[1, '! mała'], [2, '!! średnia'], [3, '!!! duża']].map(([v, l]) => option(v, l, v === Number(x.weight)))}</select>
+        </label>
+        <label class="field">ile dni wcześniej zacząć
+          <input class="input" type="number" name="prepDays" min="0" max="120" value="${x.prepDays ?? ''}" placeholder="auto: ${autoPrep}">
+        </label>
+      </div>
+      <label class="field">z czego się uczyć — jeden temat / materiał w linii
+        <textarea class="input" name="scope" rows="6" placeholder="Wykład 1–3: popyt i podaż&#10;Ćwiczenia: lista 2&#10;Rozdział 5 z podręcznika">${(x.scope || []).map((t) => t.text).join('\n')}</textarea>
+      </label>
+      <label class="field">notatka
+        <textarea class="input" name="note" rows="2">${x.note || ''}</textarea>
+      </label>
+      <div class="field-row">
+        <label class="check-label"><input type="checkbox" class="check" name="done" ${x.done ? raw('checked') : ''}> zrobione / zaliczone</label>
+        <label class="field">ocena
+          <input class="input" name="grade" value="${x.grade || ''}" placeholder="np. 4,5">
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <div></div>
+        <div>
+          <button class="btn" value="cancel" formnovalidate>Anuluj</button>
+          <button class="btn primary" value="save">Zapisz</button>
+        </div>
+      </div>
+    </form>`,
+  (f) => {
+    const done = f.get('done') === 'on';
+    const data = {
+      subject: f.get('subject') || null,
+      kind: f.get('kind'),
+      title: String(f.get('title')).trim(),
+      date: f.get('date') || '',
+      time: f.get('time') || '',
+      place: String(f.get('place')).trim(),
+      weight: Number(f.get('weight')),
+      prepDays: f.get('prepDays') === '' ? null : Number(f.get('prepDays')),
+      scope: scopeFromText(String(f.get('scope')), x.scope),
+      note: String(f.get('note')).trim(),
+      done,
+      doneAt: done ? (x.doneAt || today()) : null,
+      grade: String(f.get('grade')).trim(),
+    };
+    if (!data.title && !data.subject) data.title = kindById(data.kind).name;
+    if (id) store.patch('study', id, data);
+    else store.add('study', data);
+  },
+  // The "auto" hint follows the chosen kind and weight
+  (form) => {
+    const update = () => { form.prepDays.placeholder = `auto: ${prepDays({ kind: form.kind.value, weight: Number(form.weight.value), prepDays: null })}`; };
+    form.kind.addEventListener('change', update);
+    form.weight.addEventListener('change', update);
   });
 }

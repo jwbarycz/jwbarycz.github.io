@@ -26,7 +26,8 @@ How it works: changes are saved in the browser immediately and pushed to the rep
 
 | Route | What it is |
 |---|---|
-| `#/` (logo) | **Panel** — summary: focus, day plan, energy, ideas, projects, deadlines |
+| `#/` (logo) | **Panel** — summary: the most urgent study deadlines at the top, then focus, day plan, energy, ideas, projects, deadlines |
+| `#/studia` | Studies — exams, tests, projects and assignments per subject, ordered by urgency, with a 6-week timeline, when to start preparing and today's portion of material; `#/studia/<id>` is a single subject |
 | `#/zadania` | Tasks — blog-style list grouped into overdue / today / upcoming / no date / done |
 | `#/projekty` | Projects — cards with progress; `#/projekty/<id>` is a single project with its tasks |
 | `#/pomysly` | Ideas — an inbox for loose thoughts; turn any of them into a task or a project with one click |
@@ -45,8 +46,9 @@ How it works: changes are saved in the browser immediately and pushed to the rep
 | `js/store.js` | app state and browser persistence (localStorage) |
 | `js/sync.js` | sync with the `panel-data` repo via the GitHub Contents API |
 | `js/merge.js` | merging data from two devices |
-| `js/search.js` | search modal (⌘K / Ctrl+K) over tasks, projects, ideas and journal notes |
+| `js/search.js` | search modal (⌘K / Ctrl+K) over studies, tasks, projects, ideas and journal notes |
 | `js/tasks.js` | quick-add parser, task filters and sorting |
+| `js/study.js` | study deadlines: urgency, preparation window, today's portion, quick-add parser |
 | `js/insights.js` | derived data: project progress, energy |
 | `js/components.js` | task row and blog-style entry, dialogs, energy chart |
 | `js/views/*.js` | one file per tab |
@@ -61,9 +63,27 @@ How it works: changes are saved in the browser immediately and pushed to the rep
 - `+name` — project (a prefix of the name is enough)
 - `^jutro` etc. — plan for a given day
 
+## Studies — quick add
+
+`Kolokwium 1 #kol +stat @12.11 !3`
+
+- `#egz` `#kol` `#zal` `#proj` `#prez` `#ref` `#zad` — kind (exam, test, credit, project, presentation, paper, assignment)
+- `+name` — subject (a prefix of any word in its name)
+- `@12.11` — date, `!1`–`!3` — weight
+
+Each kind has a default number of days to start preparing before the date (`js/config.js` → `study.kinds`),
+scaled by weight (light ×0.5, heavy ×1.5) unless set per deadline. "What to study from" is a checklist — one topic
+per line — and the panel splits the remaining topics over the days left.
+
+## Tests
+
+```bash
+node tests/merge.test.mjs && node tests/study.test.mjs
+```
+
 ## Shortcuts
 
-`n` new task · `⌘K` / `Ctrl+K` search · `t` theme · `g` + `p` Panel / `z` Tasks / `r` Projects / `i` Ideas / `d` Journal / `s` Style
+`n` new task · `⌘K` / `Ctrl+K` search · `t` theme · `g` + `p` Panel / `u` Studies / `z` Tasks / `r` Projects / `i` Ideas / `d` Journal / `s` Style
 
 ## Licenses
 

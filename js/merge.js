@@ -2,7 +2,7 @@
 // Rule: for each item the newer change (updatedAt) wins, and a deletion wins
 // over changes made before it. No dependencies — testable in Node.
 
-const COLLECTIONS = ['tasks', 'projects', 'ideas'];
+const COLLECTIONS = ['tasks', 'projects', 'ideas', 'subjects', 'study'];
 // Deletion markers older than half a year can be forgotten
 const TOMBSTONE_TTL_MS = 180 * 86400000;
 
@@ -40,10 +40,12 @@ export function mergeStates(a, b, now = Date.now()) {
   const deleted = mergeDeleted(a.deleted, b.deleted, now);
   const out = { version: Math.max(a.version || 1, b.version || 1), deleted, days: mergeDays(a.days, b.days) };
   for (const c of COLLECTIONS) out[c] = mergeList(a[c], b[c], deleted);
-  // Same order as the app: tasks and ideas newest first, projects oldest first
+  // Same order as the app: tasks and ideas newest first, the rest oldest first
   out.tasks.sort(byCreated(-1));
   out.projects.sort(byCreated(1));
   out.ideas.sort(byCreated(-1));
+  out.subjects.sort(byCreated(1));
+  out.study.sort(byCreated(1));
   return out;
 }
 

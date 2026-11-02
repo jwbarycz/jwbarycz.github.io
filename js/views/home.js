@@ -5,6 +5,7 @@ import { store } from '../store.js';
 import { html, longDate, isoWeek, today, pad, plural, relDate, addDays } from '../utils.js';
 import { isForToday, isOverdue, sortTasks, groupByCategory, prioMark } from '../tasks.js';
 import { projectStats, energySeries, avg } from '../insights.js';
+import { urgency, dailyPortion, sortByUrgency, inDays, itemTitle } from '../study.js';
 import { taskList, quickAdd, icons, checkin, sparkline, projectChip, callout } from '../components.js';
 
 function dayProgress() {
@@ -49,6 +50,41 @@ function focusCard(todays) {
 }
 
 const more = (href, label) => html`<a class="readmore" href="${href}">${label} ⟶</a>`;
+
+/** Top-of-page study strip: the most urgent deadlines with countdown and today's portion. */
+function studyBox() {
+  const { study, subjects } = store.state;
+  const open = sortByUrgency(study.filter((x) => !x.done));
+  if (!open.length) {
+    return subjects.length ? '' : html`
+      <section class="home-study empty-study">
+        <h2 class="list-section">Studia</h2>
+        <p class="empty">Dodaj przedmioty i terminy z uczelni — tu zobaczysz, co nadchodzi i kiedy zacząć naukę. ${more('#/studia', 'Studia')}</p>
+      </section>`;
+  }
+  const top = open.slice(0, 4);
+  return html`
+    <section class="home-study">
+      <h2 class="list-section">Studia <span class="count">${open.length} do zrobienia</span></h2>
+      <ul class="study-strip">
+        ${top.map((x) => {
+          const u = urgency(x);
+          const s = subjects.find((v) => v.id === x.subject);
+          const portion = dailyPortion(x);
+          return html`
+            <li class="lvl-${u.level}" data-id="${x.id}">
+              <span class="u-dot" title="${u.label}"></span>
+              <span class="ss-main">
+                <span class="mini-title" data-action="study-edit">${itemTitle(x)}${s ? html`<span class="muted"> · ${s.name}</span>` : ''}</span>
+                <span class="ss-sub">${u.label}${portion ? ` · na dziś: ${portion}` : ''}</span>
+              </span>
+              <span class="ss-when">${x.date ? inDays(u.daysLeft) : '—'}</span>
+            </li>`;
+        })}
+      </ul>
+      <div class="post-links">${more('#/studia', open.length > top.length ? `Wszystkie (${open.length})` : 'Studia')}</div>
+    </section>`;
+}
 
 function ideasBox() {
   const open = store.state.ideas.filter((x) => !x.converted)
@@ -125,6 +161,8 @@ export function renderHome() {
       <div class="progress thin"><span style="--value:${dayPct}%"></span></div>
       <span class="tabular">${time} · ${dayPct}% dnia</span>
     </div>
+
+    ${studyBox()}
 
     ${store.hasSeed() ? callout('tip', 'Przykładowe dane',
       html`<p>Zadania, projekty, pomysły i wpisy w dzienniku są przykładowe, żeby było widać, jak panel wygląda. <button class="link-btn" data-action="clear-seed">Usuń je</button>, kiedy zaczniesz dodawać własne.</p>`) : ''}

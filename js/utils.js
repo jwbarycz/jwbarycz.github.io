@@ -81,3 +81,34 @@ export const plural = (n, one, few, many) => {
   const d = n % 10, t = n % 100;
   return d >= 2 && d <= 4 && (t < 12 || t > 14) ? few : many;
 };
+
+/* ---------- Parsing user input ---------- */
+
+/** Lowercase without Polish diacritics — for matching user input. */
+export const fold = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ł/g, 'l');
+
+const WEEKDAY_TOKENS = { nd: 0, nie: 0, pn: 1, pon: 1, wt: 2, sr: 3, cz: 4, czw: 4, pt: 5, pia: 5, sb: 6, sob: 6 };
+
+/** "dziś", "jutro", "pt", "30.10", "2026-11-02" → 'YYYY-MM-DD' (or null). */
+export function parseDateToken(tok) {
+  const t = fold(tok);
+  const now = today();
+  if (t === 'dzis' || t === 'dzisiaj') return now;
+  if (t === 'jutro') return addDays(now, 1);
+  if (t === 'pojutrze') return addDays(now, 2);
+  if (t === 'tydzien') return addDays(now, 7);
+  if (t in WEEKDAY_TOKENS) {
+    const cur = parseIso(now).getDay();
+    const diff = (WEEKDAY_TOKENS[t] - cur + 7) % 7 || 7;
+    return addDays(now, diff);
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  const m = t.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?$/);
+  if (m) {
+    const y = m[3] ? Number(m[3]) : new Date().getFullYear();
+    let iso = `${y}-${pad(m[2])}-${pad(m[1])}`;
+    if (!m[3] && iso < now) iso = `${y + 1}-${pad(m[2])}-${pad(m[1])}`;
+    return iso;
+  }
+  return null;
+}

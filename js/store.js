@@ -9,6 +9,9 @@
 //   tasks:    [{ id, title, cat, project, prio, due, plan, note, done, doneAt, createdAt }]
 //   projects: [{ id, name, desc, status, color, link, createdAt }]
 //   ideas:    [{ id, title, note, pinned, converted: { kind: 'task'|'project', id, at } | null, createdAt }]
+//   subjects: [{ id, name, form: 'E'|'Z', ects, lecturer, color, link, note, createdAt }]
+//   study:    [{ id, subject, kind, title, date, time, place, weight, prepDays, scope: [{ id, text, done }],
+//                done, doneAt, grade, note, createdAt }]
 //   days:     { 'YYYY-MM-DD': { focus, energy, mood, note, updatedAt } }
 //   deleted:  { id: ISO }
 
@@ -36,7 +39,7 @@ const localAdapter = {
   },
 };
 
-const emptyState = () => ({ version: 5, tasks: [], projects: [], ideas: [], days: {}, deleted: {} });
+const emptyState = () => ({ version: 6, tasks: [], projects: [], ideas: [], subjects: [], study: [], days: {}, deleted: {} });
 
 /* ---------- Sample data (marked seed: true, removable with one click) ---------- */
 
@@ -73,10 +76,45 @@ function seedExtras(s) {
   return { pPanel, pPython, pPokoj };
 }
 
+function seedStudy(s) {
+  const t = today();
+  const now = new Date().toISOString();
+  const subject = (name, form, ects, color, extra = {}) =>
+    ({ id: uid(), name, form, ects, lecturer: '', color, link: '', note: '', createdAt: now, seed: true, ...extra });
+  const mikro = subject('Mikroekonomia', 'E', 6, '--info', { lecturer: 'dr hab. Nowak' });
+  const stat = subject('Statystyka opisowa', 'E', 5, '--violet');
+  const rach = subject('Rachunkowość finansowa', 'Z', 4, '--warning');
+  const ang = subject('Język angielski', 'Z', 2, '--tip');
+  s.subjects.push(mikro, stat, rach, ang);
+
+  const topics = (list, done = 0) => list.map((text, i) => ({ id: uid(), text, done: i < done }));
+  const item = (subjectId, kind, date, extra = {}) => ({
+    id: uid(), subject: subjectId, kind, title: '', date, time: '', place: '', weight: 2, prepDays: null,
+    scope: [], done: false, doneAt: null, grade: '', note: '', createdAt: now, seed: true, ...extra,
+  });
+  s.study.push(
+    item(stat.id, 'kolokwium', addDays(t, 6), {
+      title: 'Kolokwium 1', time: '9:15', place: 'bud. Z, s. 104',
+      scope: topics(['Szereg rozdzielczy i histogram', 'Miary położenia', 'Miary zmienności', 'Asymetria i koncentracja', 'Zadania z listy 1–3'], 2),
+    }),
+    item(ang.id, 'zadanie', addDays(t, 2), { title: 'Essay: my career plans (250 słów)', weight: 1 }),
+    item(rach.id, 'projekt', addDays(t, 16), {
+      title: 'Projekt: bilans i RZiS dla spółki', weight: 3, note: 'W parach. Oddać w wersji PDF na eKursach.',
+      scope: topics(['Wybrać spółkę i pobrać sprawozdanie', 'Bilans — aktywa', 'Bilans — pasywa', 'Rachunek zysków i strat', 'Wnioski i formatowanie']),
+    }),
+    item(mikro.id, 'egzamin', addDays(t, 34), {
+      time: '12:00', place: 'Aula A', weight: 3,
+      scope: topics(['Popyt, podaż, równowaga', 'Elastyczności', 'Teoria konsumenta', 'Teoria producenta i koszty', 'Konkurencja doskonała', 'Monopol', 'Oligopol i teoria gier', 'Rynki czynników produkcji'], 1),
+    }),
+    item(ang.id, 'prezentacja', addDays(t, -9), { title: 'Prezentacja: start-upy w Polsce', done: true, doneAt: addDays(t, -9), grade: '4,5' }),
+  );
+}
+
 function seedState() {
   const s = emptyState();
   const t = today();
   const { pPanel, pPython, pPokoj } = seedExtras(s);
+  seedStudy(s);
   const mk = (title, extra = {}) => ({
     id: uid(), title, cat: 'inbox', project: null, prio: 0, due: null, plan: null, note: '',
     done: false, doneAt: null, createdAt: new Date().toISOString(), seed: true, ...extra,
@@ -116,6 +154,8 @@ function migrate(s) {
   s.tasks ||= [];
   s.projects ||= [];
   s.ideas ||= [];
+  s.subjects ||= [];
+  s.study ||= [];
   s.days ||= {};
   for (const t of s.tasks) if (!('project' in t)) t.project = null;
   s.deleted ||= {};
@@ -125,9 +165,9 @@ function migrate(s) {
     for (const d of Object.values(s.days)) delete d.habits;
     if (s.tasks.some((t) => t.seed)) return seedState();
   }
-  // v5: library replaced by ideas
+  // v5: library replaced by ideas; v6: subjects and study items added
   delete s.library;
-  s.version = 5;
+  s.version = 6;
   return s;
 }
 
@@ -142,7 +182,7 @@ let state = migrate(loaded);
 // Sample-only = at least one item, all of them samples, and no real journal entries.
 // Empty data is NOT pristine — it may hold e.g. a journal entry written offline.
 const onlySeed = (s) => {
-  const items = [...s.tasks, ...s.projects, ...s.ideas];
+  const items = [...s.tasks, ...s.projects, ...s.ideas, ...s.subjects, ...s.study];
   return items.length > 0 && items.every((x) => x.seed)
     && Object.values(s.days).every((d) => d.seed || !(d.energy || d.mood || d.note));
 };
@@ -253,18 +293,20 @@ export const store = {
   /* ---------- Sample data ---------- */
 
   hasSeed() {
-    return [state.tasks, state.projects, state.ideas].some((list) => list.some((x) => x.seed));
+    return [state.tasks, state.projects, state.ideas, state.subjects, state.study].some((list) => list.some((x) => x.seed));
   },
 
   clearSeed() {
     const now = nowIso();
     this.update((s) => {
-      const seedIds = [s.tasks, s.projects, s.ideas].flatMap((list) => list.filter((x) => x.seed).map((x) => x.id));
+      const seedIds = [s.tasks, s.projects, s.ideas, s.subjects, s.study].flatMap((list) => list.filter((x) => x.seed).map((x) => x.id));
       const ids = new Set(seedIds);
       for (const id of seedIds) s.deleted[id] = now;
       s.tasks = s.tasks.filter((t) => !t.seed);
       s.projects = s.projects.filter((p) => !p.seed);
       s.ideas = s.ideas.filter((x) => !x.seed);
+      s.subjects = s.subjects.filter((x) => !x.seed);
+      s.study = s.study.filter((x) => !x.seed);
       for (const t of s.tasks) if (ids.has(t.project)) Object.assign(t, { project: null, updatedAt: now });
       for (const d of Object.values(s.days)) {
         const touched = ids.has(d.focus) || d.seed;

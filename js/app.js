@@ -4,7 +4,7 @@ import { config } from './config.js';
 import { store } from './store.js';
 import { html, today, addDays } from './utils.js';
 import { parseQuick } from './tasks.js';
-import { openTaskDialog, openProjectDialog, openIdeaDialog, toast, toggleNote } from './components.js';
+import { openTaskDialog, openProjectDialog, openIdeaDialog, openStudyDialog, openSubjectDialog, toast, toggleNote } from './components.js';
 import { renderHome } from './views/home.js';
 import { renderTasks, ui as tasksUi } from './views/tasks.js';
 import { renderProjects, renderProject } from './views/projects.js';
@@ -14,9 +14,12 @@ import { renderStyle } from './views/style.js';
 import { renderSettings, ui as settingsUi } from './views/settings.js';
 import { sync } from './sync.js';
 import { initSearch } from './search.js';
+import { renderStudy, renderSubject, ui as studyUi } from './views/study.js';
+import { parseStudy } from './study.js';
 
 const routes = {
   '': { id: 'panel', title: 'Panel', render: renderHome },
+  studia: { id: 'studia', title: 'Studia', render: (id) => (id ? renderSubject(id) : renderStudy()) },
   zadania: { id: 'zadania', title: 'Zadania', render: renderTasks },
   projekty: { id: 'projekty', title: 'Projekty', render: (id) => (id ? renderProject(id) : renderProjects()) },
   pomysly: { id: 'pomysly', title: 'Pomysły', render: renderIdeas },
@@ -53,8 +56,9 @@ function render({ keepFocus = false } = {}) {
 
   view.innerHTML = route.render(param);
 
-  const project = route.id === 'projekty' && param && store.project(param);
-  document.title = `${project ? project.name : route.title} · ${config.name}`;
+  const named = param && (route.id === 'projekty' ? store.project(param)?.name
+    : route.id === 'studia' ? store.state.subjects.find((s) => s.id === param)?.name : null);
+  document.title = `${named || route.title} · ${config.name}`;
   document.querySelectorAll('[data-route]').forEach((a) => {
     if (a.dataset.route === route.id) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
@@ -119,6 +123,60 @@ function handleAction(action, el) {
       toast(`Usunięto: ${t?.title ?? ''}`, undo);
       break;
     }
+    /* study */
+    case 'study-new':
+      openStudyDialog(null, { subject: currentRoute().route.id === 'studia' ? currentRoute().param || studyUi.subject || '' : '' });
+      break;
+    case 'study-edit':
+      openStudyDialog(id);
+      break;
+    case 'study-done': {
+      const item = store.state.study.find((x) => x.id === id);
+      if (item.done) {
+        store.patch('study', id, { done: false, doneAt: null });
+      } else {
+        store.patch('study', id, { done: true, doneAt: today() });
+        toast('Zaliczone ✓ — ocenę dopiszesz w edycji', () => store.patch('study', id, { done: false, doneAt: null }));
+      }
+      break;
+    }
+    case 'study-delete': {
+      const item = store.state.study.find((x) => x.id === id);
+      const undo = store.remove('study', id);
+      toast(`Usunięto: ${item?.title || item?.kind || ''}`, undo);
+      break;
+    }
+    case 'scope-toggle': {
+      const item = store.state.study.find((x) => x.id === id);
+      const topic = el.dataset.topic;
+      studyUi.openScopes.set(id, true);
+      store.patch('study', id, { scope: item.scope.map((t) => (t.id === topic ? { ...t, done: !t.done } : t)) });
+      break;
+    }
+    case 'study-all-done':
+      studyUi.showAllDone = !studyUi.showAllDone;
+      render({ keepFocus: true });
+      break;
+    case 'subject-new':
+      openSubjectDialog(null);
+      break;
+    case 'subject-edit':
+      openSubjectDialog(id);
+      break;
+    case 'subject-delete': {
+      const s = store.state.subjects.find((x) => x.id === id);
+      if (!s || !confirm(`Usunąć przedmiot „${s.name}”? Jego terminy zostaną, tylko bez przedmiotu.`)) break;
+      const linked = store.state.study.filter((x) => x.subject === id).map((x) => x.id);
+      store.patchWhere('study', (x) => x.subject === id, { subject: null });
+      const undo = store.remove('subjects', id);
+      location.hash = '#/studia';
+      toast(`Usunięto przedmiot: ${s.name}`, () => {
+        undo();
+        store.patchWhere('study', (x) => linked.includes(x.id), { subject: id });
+      });
+      break;
+    }
+
     case 'toggle-all-done':
       tasksUi.showAllDone = !tasksUi.showAllDone;
       render({ keepFocus: true });
@@ -237,6 +295,10 @@ sync.start();
 view.addEventListener('click', (e) => {
   const fc = e.target.closest('[data-filter-cat]');
   if (fc) { tasksUi.cat = tasksUi.cat === fc.dataset.filterCat ? null : fc.dataset.filterCat; return render({ keepFocus: true }); }
+  const ss = e.target.closest('[data-study-sort]');
+  if (ss) { studyUi.sort = ss.dataset.studySort; return render({ keepFocus: true }); }
+  const fs = e.target.closest('[data-filter-subject]');
+  if (fs) { studyUi.subject = studyUi.subject === fs.dataset.filterSubject ? null : fs.dataset.filterSubject; return render({ keepFocus: true }); }
   const fp = e.target.closest('[data-filter-project]');
   if (fp) { tasksUi.project = tasksUi.project === fp.dataset.filterProject ? null : fp.dataset.filterProject; return render({ keepFocus: true }); }
 
@@ -244,6 +306,11 @@ view.addEventListener('click', (e) => {
   if (!el || (el.tagName === 'INPUT' && el.type === 'checkbox')) return; // checkboxes are handled by 'change'
   handleAction(el.dataset.action, el);
 });
+
+// Remember which topic lists are unfolded, so a re-render doesn't fold them back
+view.addEventListener('toggle', (e) => {
+  if (e.target.matches?.('details.scope')) studyUi.openScopes.set(e.target.dataset.id, e.target.open);
+}, true);
 
 view.addEventListener('change', (e) => {
   if (e.target.matches('input[type="checkbox"][data-action]')) handleAction(e.target.dataset.action, e.target);
@@ -266,6 +333,18 @@ view.addEventListener('submit', (e) => {
     store.addTask(parsed);
     input.value = '';
     input.focus();
+  }
+
+  if (kind === 'add-study') {
+    const input = form.querySelector('input');
+    const parsed = parseStudy(input.value, store.state.subjects);
+    if (!parsed.title && !parsed.date && !parsed.subject) return;
+    const { route, param } = currentRoute();
+    if (!parsed.subject) parsed.subject = (route.id === 'studia' && (param || studyUi.subject)) || null;
+    store.add('study', { place: '', time: '', prepDays: null, scope: [], done: false, doneAt: null, grade: '', note: '', date: '', ...parsed });
+    input.value = '';
+    input.focus();
+    toast(parsed.date ? 'Dodane — z czego się uczyć dopiszesz w edycji' : 'Dodane bez daty — ustaw ją w edycji');
   }
 
   if (kind === 'add-idea') {
@@ -302,7 +381,7 @@ sync.start();
 });
 
 /* ---------- Keyboard shortcuts ---------- */
-const JUMPS = { p: '#/', z: '#/zadania', r: '#/projekty', i: '#/pomysly', d: '#/dziennik', s: '#/styl' };
+const JUMPS = { p: '#/', u: '#/studia', z: '#/zadania', r: '#/projekty', i: '#/pomysly', d: '#/dziennik', s: '#/styl' };
 let gPressed = 0;
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;

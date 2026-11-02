@@ -24,5 +24,23 @@ export const config = {
   ],
 };
 
+// University: shown on the Studia tab
+config.study = {
+  university: 'UEW',
+  term: 'semestr zimowy 2026/27',
+  // Kinds of deadlines. `prepDays` = how many days before the date to start preparing
+  // (for medium weight; light is ×0.5, heavy ×1.5). `token` is used in quick add (#egz, #kol, …).
+  kinds: [
+    { id: 'egzamin',     name: 'Egzamin',     token: 'egz',  prepDays: 14, color: '--primary-color' },
+    { id: 'kolokwium',   name: 'Kolokwium',   token: 'kol',  prepDays: 7,  color: '--violet' },
+    { id: 'zaliczenie',  name: 'Zaliczenie',  token: 'zal',  prepDays: 7,  color: '--warning' },
+    { id: 'projekt',     name: 'Projekt',     token: 'proj', prepDays: 10, color: '--info' },
+    { id: 'prezentacja', name: 'Prezentacja', token: 'prez', prepDays: 5,  color: '--tip' },
+    { id: 'referat',     name: 'Referat',     token: 'ref',  prepDays: 5,  color: '--tip' },
+    { id: 'zadanie',     name: 'Zadanie',     token: 'zad',  prepDays: 2,  color: '--success' },
+  ],
+  weightFactor: { 1: 0.5, 2: 1, 3: 1.5 },
+};
+
 export const categoryById = (id) =>
   config.categories.find((c) => c.id === id) || config.categories[0];

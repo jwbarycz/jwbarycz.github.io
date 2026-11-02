@@ -1,9 +1,10 @@
-// Search modal (Cmd/Ctrl + K): tasks, projects, ideas and journal notes.
+// Search modal (Cmd/Ctrl + K): tasks, projects, ideas, studies and journal notes.
 // Matching ignores case and Polish diacritics; every query word has to match.
 
 import { store } from './store.js';
 import { html, raw, esc, plural } from './utils.js';
-import { openTaskDialog, openIdeaDialog } from './components.js';
+import { openTaskDialog, openIdeaDialog, openStudyDialog } from './components.js';
+import { itemTitle } from './study.js';
 import { ui as journalUi } from './views/journal.js';
 
 const LIMIT = 20;
@@ -51,6 +52,15 @@ function documents() {
     ...s.tasks.map((t) => ({ kind: 'zadanie', id: t.id, title: t.title, body: t.note || '', date: t.doneAt || t.due || t.plan || t.createdAt, done: t.done })),
     ...s.projects.map((p) => ({ kind: 'projekt', id: p.id, title: p.name, body: p.desc || '', date: p.createdAt })),
     ...s.ideas.map((x) => ({ kind: 'pomysł', id: x.id, title: x.title, body: x.note || '', date: x.createdAt })),
+    ...s.subjects.map((x) => ({ kind: 'przedmiot', id: x.id, title: x.name, body: [x.lecturer, x.note].filter(Boolean).join(' · '), date: x.createdAt })),
+    ...s.study.map((x) => {
+      const subject = s.subjects.find((v) => v.id === x.subject);
+      return {
+        kind: 'studia', id: x.id, done: x.done, date: x.date,
+        title: `${itemTitle(x)}${subject ? ` · ${subject.name}` : ''}`,
+        body: [x.date, x.note, ...(x.scope || []).map((t) => t.text)].filter(Boolean).join(' · '),
+      };
+    }),
     ...Object.entries(s.days)
       .filter(([, d]) => d.note)
       .map(([date, d]) => ({ kind: 'dziennik', id: date, title: `Dziennik ${date}`, body: d.note, date })),
@@ -123,6 +133,8 @@ function openResult(r) {
   if (r.kind === 'zadanie') openTaskDialog(r.id);
   if (r.kind === 'projekt') location.hash = `#/projekty/${r.id}`;
   if (r.kind === 'pomysł') { location.hash = '#/pomysly'; openIdeaDialog(r.id); }
+  if (r.kind === 'przedmiot') location.hash = `#/studia/${r.id}`;
+  if (r.kind === 'studia') { location.hash = '#/studia'; openStudyDialog(r.id); }
   if (r.kind === 'dziennik') {
     journalUi.date = r.id;
     if (location.hash === '#/dziennik') window.dispatchEvent(new HashChangeEvent('hashchange'));
@@ -137,7 +149,7 @@ export function openSearch() {
     <h1 id="search-title">Szukaj</h1>
     <div class="search-bar">
       <input type="search" role="combobox" aria-expanded="true" aria-controls="search-results" aria-autocomplete="list"
-        autocomplete="off" spellcheck="false" placeholder="zadania, projekty, pomysły, dziennik…">
+        autocomplete="off" spellcheck="false" placeholder="studia, zadania, projekty, pomysły, dziennik…">
       <button type="button" class="clear-button" title="Wyczyść" aria-label="Wyczyść" hidden>
         <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg>
       </button>
