@@ -3,8 +3,8 @@
 
 import { config } from '../config.js';
 import { store } from '../store.js';
-import { html, today, addDays, daysBetween, relDate, plural, fold } from '../utils.js';
-import { kindById, urgency, prepDays, scopeProgress, dailyPortion, sortByUrgency, sortByDate, inDays, itemTitle } from '../study.js';
+import { html, raw, esc, today, addDays, daysBetween, relDate, plural, fold } from '../utils.js';
+import { kindById, urgency, prepDays, scopeProgress, dailyPortion, sortByUrgency, sortByDate, inDays, itemTitle, pointsLabel, openQuestions } from '../study.js';
 import { icons, draftLabel, callout } from '../components.js';
 
 // openScopes: ids of items whose topic list the user unfolded (kept across re-renders)
@@ -19,8 +19,8 @@ const subjectById = (id) => store.state.subjects.find((s) => s.id === id);
 function heading(item) {
   const kind = kindById(item.kind).name;
   if (!item.title) return kind;
-  // Plain assignments don't need the "Zadanie:" prefix
-  if (item.kind === 'zadanie' || fold(item.title).startsWith(fold(kind))) return item.title;
+  // Plain assignments and dates don't need a "Zadanie:" / "Ważna data:" prefix
+  if (['zadanie', 'inne'].includes(item.kind) || fold(item.title).startsWith(fold(kind))) return item.title;
   return `${kind}: ${item.title}`;
 }
 
@@ -33,7 +33,9 @@ function urgencyChip(u) {
 
 /** One line about preparation: when to start, or how much to do today. */
 function planLine(item, u) {
-  if (u.level === 'done' || u.level === 'nodate') return '';
+  if (u.level === 'done') return '';
+  if (u.level === 'nodate') return item.dateNote ? html`<div class="study-plan">Termin: ${item.dateNote} — dokładna data jeszcze nieznana.</div>` : '';
+  if (!prepDays(item)) return '';
   const { left, total } = scopeProgress(item);
   const portion = dailyPortion(item);
   if (u.level === 'overdue') return html`<div class="study-plan">Termin minął ${inDays(u.daysLeft)} — oznacz jako zrobione albo zmień datę.</div>`;
@@ -69,7 +71,7 @@ export function studyItem(item, opts = {}) {
   return html`
     <li class="list-item study-item lvl-${u.level} ${item.done ? 'done' : ''}" data-id="${item.id}">
       <div class="post-header">
-        <time datetime="${item.date || ''}">${item.date || '—'}</time>
+        <time datetime="${item.date || ''}" class="${!item.date && item.dateNote ? 'approx' : ''}">${item.date || item.dateNote || '—'}</time>
         <div class="post-body">
           <h3 class="post-title" style="--kind: var(${kindById(item.kind).color})">
             <span class="title-text" data-action="study-edit">${heading(item)}</span>${item.weight ? html` <span class="prio">${'!'.repeat(item.weight)}</span>` : ''}${draftLabel(item)}
@@ -78,7 +80,9 @@ export function studyItem(item, opts = {}) {
             ${opts.hideSubject ? '' : subjectChip(s)}
             ${urgencyChip(u)}
             ${item.date && !item.done ? html`<span class="chip">${inDays(u.daysLeft)}</span>` : ''}
+            ${item.tentative && !item.done ? html`<span class="chip tentative">do potwierdzenia</span>` : ''}
             ${when ? html`<span class="chip">${when}</span>` : ''}
+            ${pointsLabel(item) ? html`<span class="chip">${pointsLabel(item)}</span>` : ''}
             ${item.done && item.grade ? html`<span class="chip grade">ocena: ${item.grade}</span>` : ''}
           </div>
           ${planLine(item, u)}
@@ -119,6 +123,38 @@ function timeline(items) {
     </div>`;
 }
 
+/** Rules text → paragraphs, with "- " lines grouped into lists. */
+function formatRules(text) {
+  const out = [];
+  let list = null;
+  for (const line of String(text).split('\n')) {
+    const t = line.trim();
+    if (t.startsWith('- ')) {
+      list ||= [];
+      list.push(`<li>${esc(t.slice(2))}</li>`);
+      continue;
+    }
+    if (list) { out.push(`<ul>${list.join('')}</ul>`); list = null; }
+    if (t) out.push(`<p>${esc(t)}</p>`);
+  }
+  if (list) out.push(`<ul>${list.join('')}</ul>`);
+  return raw(out.join(''));
+}
+
+/** Checklist of things to find out; with opts.showSubject the subject chip comes first. */
+function questionList(entries, opts = {}) {
+  return html`
+    <ul class="question-list">
+      ${entries.map(({ subject, question }) => html`
+        <li>
+          <label class="check-label">
+            <input type="checkbox" class="check" data-action="question-toggle" data-subject="${subject.id}" data-q="${question.id}" ${question.done ? 'checked' : ''}>
+            <span class="${question.done ? 'strike muted' : ''}">${opts.showSubject ? html`<span class="q-subject" style="--cat: var(${subject.color})">${subject.name}</span> ` : ''}${question.text}</span>
+          </label>
+        </li>`)}
+    </ul>`;
+}
+
 function subjectCard(s) {
   const items = store.state.study.filter((x) => x.subject === s.id);
   const open = sortByUrgency(items.filter((x) => !x.done));
@@ -130,7 +166,7 @@ function subjectCard(s) {
         <h3><a href="#/studia/${s.id}">${s.name}</a>${draftLabel(s)}</h3>
         <span class="form-badge" title="${s.form === 'E' ? 'egzamin' : 'zaliczenie'}">${s.form}</span>
       </div>
-      <div class="subject-meta">${s.ects ? `${s.ects} ECTS · ` : ''}${open.length} ${plural(open.length, 'termin', 'terminy', 'terminów')} do zrobienia${grades.length ? ` · średnia ${(grades.reduce((a, b) => a + b, 0) / grades.length).toFixed(2).replace('.', ',')}` : ''}</div>
+      <div class="subject-meta">${s.code ? `${s.code} · ` : ''}${s.ects ? `${s.ects} ECTS · ` : ''}${open.length} ${plural(open.length, 'termin', 'terminy', 'terminów')} do zrobienia${(s.questions || []).some((q) => !q.done) ? ` · ${(s.questions || []).filter((q) => !q.done).length} do ustalenia` : ''}${grades.length ? ` · średnia ${(grades.reduce((a, b) => a + b, 0) / grades.length).toFixed(2).replace('.', ',')}` : ''}</div>
       ${next ? html`<div class="subject-next">następne: <b>${heading(next)}</b> ${next.date ? html`· ${relDate(next.date)}` : ''} ${urgencyChip(urgency(next))}</div>` : html`<div class="subject-next faint">nic nie wisi</div>`}
     </div>`;
 }
@@ -191,6 +227,13 @@ export function renderStudy() {
       ${sorted.length ? html`<ul class="post-list">${sorted.map((x) => studyItem(x))}</ul>`
         : html`<p class="empty">Nic nie wisi${ui.subject ? ' z tego przedmiotu' : ''}. Pięknie.</p>`}
 
+      ${(() => {
+        const qs = openQuestions(ui.subject ? subjects.filter((x) => x.id === ui.subject) : subjects);
+        return qs.length ? callout('warning', `Do ustalenia (${qs.length})`, html`
+          <p class="muted">Rzeczy, których nie ma w materiałach — do dopytania prowadzących. Odhacz, gdy już wiesz, i dopisz odpowiedź w zasadach przedmiotu.</p>
+          ${questionList(qs, { showSubject: true })}`, { id: 'study-questions' }) : '';
+      })()}
+
       ${!ui.subject && subjects.length ? html`
         <h2 class="list-section">Przedmioty <span class="count">${subjects.length}</span></h2>
         <div class="grid two">${subjects.map(subjectCard)}</div>` : ''}
@@ -215,7 +258,14 @@ export function renderSubject(id) {
   return html`
     <p class="crumbs"><a href="#/studia">⟵ studia</a></p>
     <div class="page-header" style="margin-top:1.25rem">${s.name}<span class="dot" style="color: var(${s.color})">.</span></div>
-    <p class="section-content">${s.form === 'E' ? 'Egzamin' : 'Zaliczenie'}${s.ects ? ` · ${s.ects} ECTS` : ''}${s.lecturer ? ` · ${s.lecturer}` : ''}</p>
+    <p class="section-content">${s.form === 'E' ? 'Egzamin' : 'Zaliczenie'}${s.ects ? ` · ${s.ects} ECTS` : ''}${s.code ? ` · ${s.code}` : ''}</p>
+    ${s.lecturer || s.email || s.office || s.consultations ? html`
+      <dl class="contact">
+        ${s.lecturer ? html`<dt>prowadzący</dt><dd>${s.lecturer}</dd>` : ''}
+        ${s.email ? html`<dt>e-mail</dt><dd><a href="mailto:${s.email}">${s.email}</a></dd>` : ''}
+        ${s.office ? html`<dt>pokój</dt><dd>${s.office}</dd>` : ''}
+        ${s.consultations ? html`<dt>konsultacje</dt><dd>${s.consultations}</dd>` : ''}
+      </dl>` : ''}
     ${s.note ? html`<p class="section-content muted" style="margin-top:.5rem">${s.note}</p>` : ''}
     <div class="post-links" style="margin-top:1rem">
       ${/^https?:\/\//.test(s.link || '') ? html`<a href="${s.link}" target="_blank" rel="noopener">Otwórz link ⟶</a>` : ''}
@@ -228,6 +278,14 @@ export function renderSubject(id) {
     <main class="list">
       <h2 class="list-section">Do zrobienia <span class="count">${open.length}</span></h2>
       ${open.length ? html`<ul class="post-list">${open.map((x) => studyItem(x, { hideSubject: true }))}</ul>` : html`<p class="empty">Nic nie wisi.</p>`}
+
+      ${s.rules ? html`
+        <h2 class="list-section">Zasady zaliczenia</h2>
+        <div class="rules">${formatRules(s.rules)}</div>` : ''}
+
+      ${(s.questions || []).length ? html`
+        <h2 class="list-section">Do ustalenia <span class="count">${s.questions.filter((q) => !q.done).length}/${s.questions.length}</span></h2>
+        ${questionList(s.questions.map((q) => ({ subject: s, question: q })))}` : ''}
       ${done.length ? html`
         <h2 class="list-section">Zaliczone <span class="count">${done.length}</span></h2>
         <ul class="post-list">${done.map((x) => studyItem(x, { hideSubject: true }))}</ul>` : ''}

@@ -37,7 +37,10 @@ config.study = {
     { id: 'projekt',     name: 'Projekt',     token: 'proj', prepDays: 10, color: '--info' },
     { id: 'prezentacja', name: 'Prezentacja', token: 'prez', prepDays: 5,  color: '--tip' },
     { id: 'referat',     name: 'Referat',     token: 'ref',  prepDays: 5,  color: '--tip' },
+    { id: 'esej',        name: 'Esej',        token: 'esej', prepDays: 7,  color: '--tip' },
     { id: 'zadanie',     name: 'Zadanie',     token: 'zad',  prepDays: 2,  color: '--success' },
+    // A date to remember (make-up class, deadline for a decision…) — nothing to prepare
+    { id: 'inne',        name: 'Ważna data',  token: 'data', prepDays: 0,  color: '--text-2' },
   ],
   weightFactor: { 1: 0.5, 2: 1, 3: 1.5 },
 };

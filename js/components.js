@@ -393,7 +393,8 @@ export function openIdeaDialog(id) {
 /* ---------- Study: subject and deadline dialogs ---------- */
 
 export function openSubjectDialog(id) {
-  const x = id ? store.state.subjects.find((v) => v.id === id) : { name: '', form: 'E', ects: '', lecturer: '', color: '--info', link: '', note: '' };
+  const x = id ? store.state.subjects.find((v) => v.id === id)
+    : { name: '', form: 'E', ects: '', code: '', lecturer: '', email: '', office: '', consultations: '', color: '--info', link: '', rules: '', questions: [], note: '' };
   if (!x) return;
   showDialog(html`
     <form method="dialog">
@@ -412,14 +413,36 @@ export function openSubjectDialog(id) {
           <select class="input" name="color">${PROJECT_COLORS.map(([v, l]) => option(v, l, v === x.color))}</select>
         </label>
       </div>
-      <label class="field">prowadzący
-        <input class="input" name="lecturer" value="${x.lecturer || ''}">
-      </label>
+      <div class="field-row">
+        <label class="field">prowadzący
+          <input class="input" name="lecturer" value="${x.lecturer || ''}">
+        </label>
+        <label class="field">e-mail
+          <input class="input" name="email" type="email" value="${x.email || ''}">
+        </label>
+      </div>
+      <div class="field-row">
+        <label class="field">pokój
+          <input class="input" name="office" value="${x.office || ''}" placeholder="np. 605 bud. Z">
+        </label>
+        <label class="field">konsultacje
+          <input class="input" name="consultations" value="${x.consultations || ''}" placeholder="np. czw. 11:15">
+        </label>
+        <label class="field">kod przedmiotu
+          <input class="input" name="code" value="${x.code || ''}">
+        </label>
+      </div>
       <label class="field">link (eKursy, Teams, sylabus — opcjonalnie)
         <input class="input" name="link" type="url" placeholder="https://" value="${x.link || ''}">
       </label>
-      <label class="field">notatka (zasady zaliczenia, progi, obecności…)
-        <textarea class="input" name="note" rows="3">${x.note || ''}</textarea>
+      <label class="field">zasady zaliczenia — linie zaczynające się od „- ” stają się listą
+        <textarea class="input" name="rules" rows="7">${x.rules || ''}</textarea>
+      </label>
+      <label class="field">do ustalenia — jedno pytanie do prowadzącego w linii
+        <textarea class="input" name="questions" rows="4">${(x.questions || []).map((q) => q.text).join('\n')}</textarea>
+      </label>
+      <label class="field">notatka
+        <textarea class="input" name="note" rows="2">${x.note || ''}</textarea>
       </label>
       <div class="dialog-actions">
         <div></div>
@@ -435,8 +458,14 @@ export function openSubjectDialog(id) {
       form: f.get('form'),
       ects: f.get('ects') ? Number(f.get('ects')) : null,
       color: f.get('color'),
+      code: String(f.get('code')).trim(),
       lecturer: String(f.get('lecturer')).trim(),
+      email: String(f.get('email')).trim(),
+      office: String(f.get('office')).trim(),
+      consultations: String(f.get('consultations')).trim(),
       link: String(f.get('link')).trim(),
+      rules: String(f.get('rules')).trim(),
+      questions: scopeFromText(String(f.get('questions')), x.questions),
       note: String(f.get('note')).trim(),
     };
     if (!data.name) return;
@@ -454,7 +483,8 @@ function scopeFromText(text, previous = []) {
 
 export function openStudyDialog(id, defaults = {}) {
   const base = id ? store.state.study.find((v) => v.id === id)
-    : { subject: '', kind: 'zadanie', title: '', date: '', time: '', place: '', weight: 2, prepDays: null, scope: [], done: false, grade: '', note: '', ...defaults };
+    : { subject: '', kind: 'zadanie', title: '', date: '', dateNote: '', tentative: false, time: '', place: '', weight: 2, prepDays: null,
+      points: null, threshold: null, scope: [], done: false, grade: '', note: '', ...defaults };
   if (!base) return;
   const x = base;
   const autoPrep = prepDays({ ...x, prepDays: null });
@@ -485,6 +515,20 @@ export function openStudyDialog(id, defaults = {}) {
         </label>
         <label class="field">sala / miejsce
           <input class="input" name="place" value="${x.place || ''}" placeholder="np. bud. Z, s. 104">
+        </label>
+      </div>
+      <div class="field-row">
+        <label class="field">bez dokładnej daty? opisz termin
+          <input class="input" name="dateNote" value="${x.dateNote || ''}" placeholder="np. luty 2027, sesja">
+        </label>
+        <label class="check-label"><input type="checkbox" class="check" name="tentative" ${x.tentative ? raw('checked') : ''}> data do potwierdzenia</label>
+      </div>
+      <div class="field-row">
+        <label class="field">punkty (max)
+          <input class="input" type="number" name="points" min="0" step="0.5" value="${x.points ?? ''}">
+        </label>
+        <label class="field">próg zaliczenia (pkt)
+          <input class="input" type="number" name="threshold" min="0" step="0.5" value="${x.threshold ?? ''}">
         </label>
       </div>
       <div class="field-row">
@@ -522,6 +566,10 @@ export function openStudyDialog(id, defaults = {}) {
       kind: f.get('kind'),
       title: String(f.get('title')).trim(),
       date: f.get('date') || '',
+      dateNote: String(f.get('dateNote')).trim(),
+      tentative: f.get('tentative') === 'on',
+      points: f.get('points') === '' ? null : Number(f.get('points')),
+      threshold: f.get('threshold') === '' ? null : Number(f.get('threshold')),
       time: f.get('time') || '',
       place: String(f.get('place')).trim(),
       weight: Number(f.get('weight')),

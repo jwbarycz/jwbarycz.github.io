@@ -52,13 +52,16 @@ function documents() {
     ...s.tasks.map((t) => ({ kind: 'zadanie', id: t.id, title: t.title, body: t.note || '', date: t.doneAt || t.due || t.plan || t.createdAt, done: t.done })),
     ...s.projects.map((p) => ({ kind: 'projekt', id: p.id, title: p.name, body: p.desc || '', date: p.createdAt })),
     ...s.ideas.map((x) => ({ kind: 'pomysł', id: x.id, title: x.title, body: x.note || '', date: x.createdAt })),
-    ...s.subjects.map((x) => ({ kind: 'przedmiot', id: x.id, title: x.name, body: [x.lecturer, x.note].filter(Boolean).join(' · '), date: x.createdAt })),
+    ...s.subjects.map((x) => ({
+      kind: 'przedmiot', id: x.id, title: x.name, date: x.createdAt,
+      body: [x.code, x.lecturer, x.email, x.rules, ...(x.questions || []).map((q) => q.text), x.note].filter(Boolean).join(' · '),
+    })),
     ...s.study.map((x) => {
       const subject = s.subjects.find((v) => v.id === x.subject);
       return {
         kind: 'studia', id: x.id, done: x.done, date: x.date,
         title: `${itemTitle(x)}${subject ? ` · ${subject.name}` : ''}`,
-        body: [x.date, x.note, ...(x.scope || []).map((t) => t.text)].filter(Boolean).join(' · '),
+        body: [x.date || x.dateNote, x.note, ...(x.scope || []).map((t) => t.text)].filter(Boolean).join(' · '),
       };
     }),
     ...Object.entries(s.days)

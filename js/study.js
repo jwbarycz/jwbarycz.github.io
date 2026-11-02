@@ -11,8 +11,10 @@ export const kindById = (id) => KINDS.find((k) => k.id === id) || KINDS[KINDS.le
 /** Days of preparation: explicit value, or the kind's default scaled by weight. */
 export function prepDays(item) {
   if (item.prepDays != null && item.prepDays !== '') return Math.max(0, Number(item.prepDays));
+  const base = kindById(item.kind).prepDays;
+  if (!base) return 0; // plain dates need no preparation
   const factor = config.study.weightFactor[item.weight || 2] ?? 1;
-  return Math.max(1, Math.round(kindById(item.kind).prepDays * factor));
+  return Math.max(1, Math.round(base * factor));
 }
 
 export const startDate = (item) => (item.date ? addDays(item.date, -prepDays(item)) : null);
@@ -45,7 +47,7 @@ export function urgency(item, now = today()) {
   if (daysLeft < 0) return { ...base, level: 'overdue', rank: 0, label: 'po terminie' };
   if (daysLeft <= 2) return { ...base, level: 'critical', rank: 1, label: daysLeft === 0 ? 'dziś!' : 'ostatnia chwila' };
   if (startIn <= 0) return { ...base, level: 'now', rank: 2, label: 'czas się uczyć' };
-  if (startIn <= 7) return { ...base, level: 'soon', rank: 3, label: `zacznij ${inDays(startIn)}` };
+  if (startIn <= 7) return { ...base, level: 'soon', rank: 3, label: prepDays(item) ? `zacznij ${inDays(startIn)}` : 'wkrótce' };
   return { ...base, level: 'later', rank: 4, label: 'spokojnie' };
 }
 
@@ -67,6 +69,20 @@ export function sortByUrgency(list, now = today()) {
 
 export const sortByDate = (list) =>
   [...list].sort((a, b) => String(a.date || '9999').localeCompare(String(b.date || '9999')) || (b.weight - a.weight));
+
+/** "próg 25/50 pkt", "max 40 pkt", "próg 14 pkt" or '' — from the optional points fields. */
+export function pointsLabel(item) {
+  const max = item.points, min = item.threshold;
+  if (max && min) return `próg ${min}/${max} pkt`;
+  if (max) return `max ${max} pkt`;
+  if (min) return `próg ${min} pkt`;
+  return '';
+}
+
+/** Open "to find out" questions across subjects: [{ subject, question }]. */
+export function openQuestions(subjects) {
+  return subjects.flatMap((s) => (s.questions || []).filter((q) => !q.done).map((q) => ({ subject: s, question: q })));
+}
 
 /** Name shown for an item: its own title, or the kind ("Egzamin"). */
 export const itemTitle = (item) => item.title || kindById(item.kind).name;

@@ -153,6 +153,14 @@ function handleAction(action, el) {
       store.patch('study', id, { scope: item.scope.map((t) => (t.id === topic ? { ...t, done: !t.done } : t)) });
       break;
     }
+    case 'question-toggle': {
+      const subject = store.state.subjects.find((x) => x.id === el.dataset.subject);
+      if (!subject) break;
+      store.patch('subjects', subject.id, {
+        questions: subject.questions.map((q) => (q.id === el.dataset.q ? { ...q, done: !q.done } : q)),
+      });
+      break;
+    }
     case 'study-all-done':
       studyUi.showAllDone = !studyUi.showAllDone;
       render({ keepFocus: true });

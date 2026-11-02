@@ -1076,3 +1076,33 @@ details.scope .check-label .check { margin-top: 0.2rem; }
 .study-strip .lvl-critical .ss-sub, .study-strip .lvl-overdue .ss-sub { color: var(--primary-color); }
 .ss-when { font-size: 0.78rem; color: var(--text-1); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .study-strip .lvl-critical .ss-when, .study-strip .lvl-overdue .ss-when { color: var(--primary-color); font-weight: 700; }
+
+/* Studia: details */
+.chip.tentative { color: var(--warning-color); border-style: dashed; border-color: var(--warning-color); }
+.study-item time.approx { color: var(--text-2); font-style: italic; }
+dl.contact {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.2rem 1rem;
+  margin: 1rem 0 0;
+  font-size: 0.85rem;
+}
+dl.contact dt { color: var(--text-1); }
+dl.contact dd { margin: 0; font-family: var(--paragraph-font); }
+.rules { font-family: var(--paragraph-font); }
+.rules p { margin: 0.6rem 0; }
+.rules ul { margin: 0.4rem 0 0.8rem; padding-left: 1.2rem; }
+.rules li { margin: 0.2rem 0; }
+.rules li::marker { color: var(--primary-color); }
+.question-list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: grid; gap: 0.4rem; }
+.question-list .check-label { align-items: flex-start; font-family: var(--paragraph-font); font-size: 0.95rem; }
+.question-list .check { margin-top: 0.22rem; }
+.q-subject {
+  font-family: var(--text-font);
+  font-size: 0.72rem;
+  padding: 0.05em 0.45em;
+  border-radius: 4px;
+  border-left: 3px solid var(--cat);
+  background: var(--bg-1);
+  white-space: nowrap;
+}

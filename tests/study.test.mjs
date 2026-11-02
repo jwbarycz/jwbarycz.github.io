@@ -1,6 +1,6 @@
 // Run: node tests/study.test.mjs
 import assert from 'node:assert/strict';
-import { prepDays, startDate, urgency, dailyPortion, sortByUrgency, parseStudy, scopeProgress, inDays } from '../js/study.js';
+import { prepDays, startDate, urgency, dailyPortion, sortByUrgency, parseStudy, scopeProgress, inDays, pointsLabel, openQuestions } from '../js/study.js';
 
 const NOW = '2026-11-02';
 const item = (extra) => ({ id: Math.random().toString(36), kind: 'egzamin', date: '2026-11-30', weight: 2, prepDays: null, scope: [], done: false, ...extra });
@@ -52,5 +52,18 @@ assert.deepEqual(parseStudy('Egzamin #egz +mikro @2027-02-01', subjects),
 assert.equal(parseStudy('przeczytać rozdział 3 +opis', subjects).subject, 's'); // matches a later word too
 assert.equal(parseStudy('coś #nieznane', subjects).title, 'coś #nieznane');
 assert.equal(inDays(5), 'za 5 dni');
+
+// Plain dates ("Ważna data") need no preparation and never say "zacznij"
+assert.equal(prepDays(item({ kind: 'inne' })), 0);
+assert.equal(urgency(item({ kind: 'inne', date: '2026-11-08' }), NOW).label, 'wkrótce');
+assert.equal(prepDays(item({ kind: 'esej' })), 7);
+
+// Points and open questions
+assert.equal(pointsLabel(item({ points: 50, threshold: 25 })), 'próg 25/50 pkt');
+assert.equal(pointsLabel(item({ points: 40 })), 'max 40 pkt');
+assert.equal(pointsLabel(item({ threshold: 14 })), 'próg 14 pkt');
+assert.equal(pointsLabel(item()), '');
+const subjectsQ = [{ id: 'a', questions: [{ id: '1', text: 'próg?', done: false }, { id: '2', text: 'waga?', done: true }] }, { id: 'b' }];
+assert.deepEqual(openQuestions(subjectsQ).map((q) => q.question.id), ['1']);
 
 console.log('study: all tests passed');

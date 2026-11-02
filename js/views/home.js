@@ -5,7 +5,7 @@ import { store } from '../store.js';
 import { html, longDate, isoWeek, today, pad, plural, relDate, addDays } from '../utils.js';
 import { isForToday, isOverdue, sortTasks, groupByCategory, prioMark } from '../tasks.js';
 import { projectStats, energySeries, avg } from '../insights.js';
-import { urgency, dailyPortion, sortByUrgency, inDays, itemTitle } from '../study.js';
+import { urgency, dailyPortion, sortByUrgency, inDays, itemTitle, openQuestions } from '../study.js';
 import { taskList, quickAdd, icons, checkin, sparkline, projectChip, callout } from '../components.js';
 
 function dayProgress() {
@@ -65,7 +65,7 @@ function studyBox() {
   const top = open.slice(0, 4);
   return html`
     <section class="home-study">
-      <h2 class="list-section">Studia <span class="count">${open.length} do zrobienia</span></h2>
+      <h2 class="list-section">Studia <span class="count">${open.length} do zrobienia${openQuestions(subjects).length ? ` · ${openQuestions(subjects).length} do ustalenia` : ''}</span></h2>
       <ul class="study-strip">
         ${top.map((x) => {
           const u = urgency(x);
@@ -78,7 +78,7 @@ function studyBox() {
                 <span class="mini-title" data-action="study-edit">${itemTitle(x)}${s ? html`<span class="muted"> · ${s.name}</span>` : ''}</span>
                 <span class="ss-sub">${u.label}${portion ? ` · na dziś: ${portion}` : ''}</span>
               </span>
-              <span class="ss-when">${x.date ? inDays(u.daysLeft) : '—'}</span>
+              <span class="ss-when">${x.date ? inDays(u.daysLeft) : x.dateNote || '—'}</span>
             </li>`;
         })}
       </ul>
